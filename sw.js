@@ -1,39 +1,30 @@
-const CACHE = 'bar-manager-v1';
-const ASSETS = [
-  '/',
-  '/index.html'
-];
+const CACHE = 'bar-manager-v2';
+const ASSETS = ['/', '/index.html', '/app.html', '/app.js', '/manifest.json', '/icon-192.png', '/icon-512.png'];
 
-self.addEventListener('install', e => {
-  e.waitUntil(
-    caches.open(CACHE).then(c => c.addAll(ASSETS))
-  );
+self.addEventListener('install', function(e) {
+  e.waitUntil(caches.open(CACHE).then(function(c) { return c.addAll(ASSETS); }));
   self.skipWaiting();
 });
 
-self.addEventListener('activate', e => {
+self.addEventListener('activate', function(e) {
   e.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
-    )
+    caches.keys().then(function(keys) {
+      return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);}));
+    })
   );
   self.clients.claim();
 });
 
-self.addEventListener('fetch', e => {
-  // Pour les requêtes Supabase : toujours réseau (données en temps réel)
-  if (e.request.url.includes('supabase.co')) {
+self.addEventListener('fetch', function(e) {
+  if (e.request.url.includes('supabase.co') || e.request.url.includes('googleapis') || e.request.url.includes('jsdelivr') || e.request.url.includes('cloudflare')) {
     e.respondWith(fetch(e.request));
     return;
   }
-  // Pour le reste : réseau d'abord, cache en fallback
   e.respondWith(
-    fetch(e.request)
-      .then(res => {
-        const clone = res.clone();
-        caches.open(CACHE).then(c => c.put(e.request, clone));
-        return res;
-      })
-      .catch(() => caches.match(e.request))
+    fetch(e.request).then(function(res) {
+      var clone = res.clone();
+      caches.open(CACHE).then(function(c) { c.put(e.request, clone); });
+      return res;
+    }).catch(function() { return caches.match(e.request); })
   );
 });

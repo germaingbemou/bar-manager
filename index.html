@@ -28,6 +28,13 @@
   .loading { opacity: .6; pointer-events: none; }
 </style>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono&display=swap" rel="stylesheet">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0f0f11">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Bar Manager">
+  <link rel="apple-touch-icon" href="icon-192.png">
 </head>
 <body>
 <div class="login-box">
@@ -78,6 +85,13 @@ async function login() {
 db.auth.getSession().then(function(r) {
   if (r.data.session) window.location.href = 'app.html';
 });
+</script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function() {
+    navigator.serviceWorker.register('/sw.js').catch(function(e){console.log('SW:', e);});
+  });
+}
 </script>
 </body>
 </html>

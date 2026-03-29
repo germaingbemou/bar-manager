@@ -1,7 +1,7 @@
 {
   "name": "Bar Manager",
   "short_name": "Bar Manager",
-  "description": "Gestion complète de votre bar — ventes, stocks, RH",
+  "description": "Gestion complete de votre bar",
   "start_url": "/index.html",
   "display": "standalone",
   "background_color": "#0f0f11",
@@ -22,6 +22,5 @@
       "purpose": "any maskable"
     }
   ],
-  "screenshots": [],
   "categories": ["business", "finance"]
 }

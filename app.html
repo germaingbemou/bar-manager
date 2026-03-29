@@ -101,6 +101,13 @@
   .sec:first-child { margin-top: 0; }
   .access-denied { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 60px; color: var(--text3); font-family: var(--mono); font-size: 12px; gap: 10px; }
 </style>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0f0f11">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Bar Manager">
+  <link rel="apple-touch-icon" href="icon-192.png">
 </head>
 <body>
 <div class="sidebar">
@@ -397,5 +404,12 @@
 </div>
 <div class="toast" id="toast"></div>
 <script src="app.js"></script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function() {
+    navigator.serviceWorker.register('/sw.js').catch(function(e){console.log('SW:', e);});
+  });
+}
+</script>
 </body>
 </html>
