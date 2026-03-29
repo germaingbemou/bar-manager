@@ -6,6 +6,51 @@ const SUPABASE_KEY = 'sb_publishable_KyUpAkclg-xjqMLjSvftIA_oJrJyefV';
 const { createClient } = supabase;
 const db = createClient(SUPABASE_URL, SUPABASE_KEY);
 
+// ============================================
+// CACHE LOCAL — données mémorisées 5 minutes
+// ============================================
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+const _cache = {};
+
+async function dbGet(table, query) {
+  const key = table + JSON.stringify(query || {});
+  const now = Date.now();
+  if (_cache[key] && (now - _cache[key].ts) < CACHE_TTL) {
+    return _cache[key].data;
+  }
+  let q = db.from(table).select('*');
+  if (query && query.order) q = q.order(query.order, {ascending: query.asc !== false});
+  if (query && query.limit) q = q.limit(query.limit);
+  if (query && query.eq) q = q.eq(query.eq[0], query.eq[1]);
+  const { data, error } = await q;
+  if (!error && data) {
+    _cache[key] = { data: data, ts: now };
+  }
+  return data || [];
+}
+
+function invalidateCache(table) {
+  Object.keys(_cache).forEach(function(k) {
+    if (k.startsWith(table)) delete _cache[k];
+  });
+}
+
+// Précharger toutes les données au démarrage
+async function preloadData() {
+  await Promise.all([
+    dbGet('produits', {order: 'nom'}),
+    dbGet('ventes', {}),
+    dbGet('depenses', {}),
+    dbGet('achats', {}),
+    dbGet('employes', {}),
+    dbGet('presences', {}),
+    dbGet('primes', {}),
+    dbGet('avances', {})
+  ]);
+}
+
+
+
 let currentUser = null;
 let currentRole = null;
 
@@ -93,7 +138,7 @@ function showToast(msg, type) {
 }
 
 async function checkConnection() {
-  await initAuth();
+  await initAuth(); await preloadData();
   try {
     const { data, error } = await db.from('produits').select('count').limit(1);
     if (error) throw error;
@@ -115,10 +160,15 @@ function applyFilter() {
 
 async function initDashboard() {
   try {
-    let qVentes = db.from('ventes').select('*');
-    let qDep = db.from('depenses').select('*');
-    if (filterDate !== 'all') { qVentes = qVentes.eq('date', filterDate); qDep = qDep.eq('date', filterDate); }
-    const [r1, r2, r3, r4] = await Promise.all([qVentes, qDep, db.from('employes').select('*'), db.from('primes').select('*')]);
+    const [ventesAll, depsAll, employes, primes] = await Promise.all([
+      dbGet('ventes', {}),
+      dbGet('depenses', {}),
+      dbGet('employes', {}),
+      dbGet('primes', {})
+    ]);
+    const ventes = filterDate !== 'all' ? ventesAll.filter(function(v){return v.date===filterDate;}) : ventesAll;
+    const deps = filterDate !== 'all' ? depsAll.filter(function(d){return d.date===filterDate;}) : depsAll;
+    const r1 = {data: ventes}, r2 = {data: deps}, r3 = {data: employes}, r4 = {data: primes};
     const ventes = r1.data || [];
     const deps = r2.data || [];
     const employes = r3.data || [];
@@ -159,7 +209,7 @@ async function initDashboard() {
 }
 
 async function initVentes() {
-  const r = await db.from('produits').select('*').order('nom');
+  const r = { data: await dbGet('produits', {order: 'nom'}) };
   const produits = r.data || [];
   window._produits = produits;
   document.getElementById('v-body').innerHTML = produits.map(function(p,i) {
@@ -212,7 +262,7 @@ async function saveVentes() {
   for (var i=0; i<rows.length; i++) {
     await db.from('produits').update({ stock: rows[i].stock_apres }).eq('id', rows[i].produit_id);
   }
-  showToast(rows.length + ' ventes enregistrees !');
+  invalidateCache('ventes'); invalidateCache('produits'); showToast(rows.length + ' ventes enregistrees !');
 }
 
 async function loadHistVentes() {
@@ -227,7 +277,7 @@ async function loadHistVentes() {
 
 async function initStocks() {
   document.getElementById('stock-loading').style.display = 'flex';
-  var r = await db.from('produits').select('*').order('stock', {ascending: false});
+  var allProds = await dbGet('produits', {order: 'nom'}); var r = { data: allProds.slice().sort(function(a,b){return (b.stock||0)-(a.stock||0);}) };
   document.getElementById('stock-loading').style.display = 'none';
   var produits = r.data || [];
   var ok=0, faible=0, rupture=0;
@@ -254,7 +304,7 @@ async function initStocks() {
 
 async function loadDepenses() {
   document.getElementById('dep-loading').style.display = 'flex';
-  var r = await db.from('depenses').select('*').order('date', {ascending: false});
+  var r = { data: (await dbGet('depenses', {})).slice().sort(function(a,b){return b.date>a.date?1:-1;}) };
   document.getElementById('dep-loading').style.display = 'none';
   var data = r.data || [];
   var total = data.reduce(function(s,d){return s+d.montant;}, 0);
@@ -280,13 +330,13 @@ async function addDepense() {
   if (r.error) { showToast('Erreur: ' + r.error.message, 'error'); return; }
   document.getElementById('d-nom').value = '';
   document.getElementById('d-mont').value = '';
-  showToast('Depense enregistree !');
+  invalidateCache('depenses'); showToast('Depense enregistree !');
   loadDepenses();
 }
 
 async function delDepense(id) {
   await db.from('depenses').delete().eq('id', id);
-  showToast('Depense supprimee');
+  invalidateCache('depenses'); showToast('Depense supprimee');
   loadDepenses();
 }
 
@@ -300,7 +350,7 @@ async function initAchats() {
 
 async function loadAchats() {
   document.getElementById('ach-loading').style.display = 'flex';
-  var r = await db.from('achats').select('*').order('date', {ascending:false});
+  var r = { data: (await dbGet('achats', {})).slice().sort(function(a,b){return b.date>a.date?1:-1;}) };
   document.getElementById('ach-loading').style.display = 'none';
   var data = r.data || [];
   var total = data.reduce(function(s,a){return s+(a.quantite||0)*(a.prix_unitaire||0);}, 0);
@@ -328,16 +378,16 @@ async function addAchat() {
   if (rp.data) await db.from('produits').update({ stock: (rp.data.stock||0) + quantite }).eq('id', produit_id);
   document.getElementById('a-qte').value = '';
   document.getElementById('a-prix').value = '';
-  showToast('Achat enregistre !');
+  invalidateCache('achats'); invalidateCache('produits'); showToast('Achat enregistre !');
   loadAchats();
 }
 
 async function loadEmployes() {
   document.getElementById('emp-loading').style.display = 'flex';
-  var r1 = await db.from('employes').select('*');
-  var r2 = await db.from('primes').select('*');
-  var r3 = await db.from('avances').select('*');
-  var r4 = await db.from('presences').select('*');
+  const [emp_e, emp_p, emp_a, emp_pr] = await Promise.all([
+    dbGet('employes', {}), dbGet('primes', {}), dbGet('avances', {}), dbGet('presences', {})
+  ]);
+  var r1={data:emp_e}, r2={data:emp_p}, r3={data:emp_a}, r4={data:emp_pr};
   document.getElementById('emp-loading').style.display = 'none';
   var employes = r1.data || [];
   var primes = r2.data || [];
@@ -371,14 +421,14 @@ async function addEmploye() {
   if (r.error) { showToast('Erreur: ' + r.error.message, 'error'); return; }
   document.getElementById('e-nom').value = '';
   document.getElementById('e-salaire').value = '';
-  showToast('Employe ajoute !');
+  invalidateCache('employes'); showToast('Employe ajoute !');
   loadEmployes();
 }
 
 var presencesCache = {};
 async function initPresences() {
-  var r1 = await db.from('employes').select('*').order('nom');
-  var r2 = await db.from('presences').select('*');
+  const [pres_e, pres_p] = await Promise.all([dbGet('employes', {order:'nom'}), dbGet('presences', {})]);
+  var r1={data:pres_e}, r2={data:pres_p};
   window._employes = r1.data || [];
   presencesCache = {};
   (r2.data || []).forEach(function(p) {
@@ -422,7 +472,7 @@ async function cycleDay(empId, day, el) {
   if (next === '') {
     await db.from('presences').delete().eq('employe_id', empId).eq('date', dateStr);
   } else {
-    await db.from('presences').upsert({ employe_id: empId, date: dateStr, statut: next }, { onConflict: 'employe_id,date' });
+    invalidateCache('presences'); await db.from('presences').upsert({ employe_id: empId, date: dateStr, statut: next }, { onConflict: 'employe_id,date' });
   }
   renderPresSummary();
 }
@@ -444,9 +494,8 @@ function renderPresSummary() {
 
 async function initSalaires() {
   document.getElementById('sal-loading').style.display = 'flex';
-  var r1 = await db.from('employes').select('*');
-  var r2 = await db.from('primes').select('*');
-  var r3 = await db.from('avances').select('*');
+  const [sal_e, sal_p, sal_a] = await Promise.all([dbGet('employes',{}), dbGet('primes',{}), dbGet('avances',{})]);
+  var r1={data:sal_e}, r2={data:sal_p}, r3={data:sal_a};
   document.getElementById('sal-loading').style.display = 'none';
   var employes = r1.data || [];
   var primes = r2.data || [];
@@ -496,14 +545,13 @@ async function openAddPrime() {
   } else {
     await db.from('primes').insert({ employe_id: empId, type_prime: type, montant: montant, date: date });
   }
-  showToast('Enregistre !');
+  invalidateCache('primes'); invalidateCache('avances'); showToast('Enregistre !');
   initSalaires();
 }
 
 async function initAnalyse() {
-  var r1 = await db.from('ventes').select('*');
-  var r2 = await db.from('achats').select('*');
-  var r3 = await db.from('employes').select('*');
+  const [an_v, an_a, an_e] = await Promise.all([dbGet('ventes',{}), dbGet('achats',{}), dbGet('employes',{})]);
+  var r1={data:an_v}, r2={data:an_a}, r3={data:an_e};
   var ventes = r1.data || [];
   var achats = r2.data || [];
   var employes = r3.data || [];
