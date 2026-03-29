@@ -682,7 +682,7 @@ async function loadAdminUsers() {
   document.getElementById('admin-users-body').innerHTML = users.map(function(u) {
     var opts = roles.map(function(r){ return '<option value="'+r+'"'+(u.role===r?' selected':'')+'>'+labels[r]+'</option>'; }).join('');
     return '<tr><td>'+u.nom+'</td><td><span class="badge badge-green">'+labels[u.role]+'</span></td>'
-      +'<td><select onchange="updateUserRole(''+u.id+'',this.value)" style="background:var(--bg3);border:1px solid var(--border2);color:var(--text2);font-size:11px;padding:4px 7px;border-radius:6px">'+opts+'</select></td></tr>';
+      +'<td><select onchange="updateUserRole(this.getAttribute(\'data-uid\'),this.value)" data-uid="'+u.id+'" style="background:var(--bg3);border:1px solid var(--border2);color:var(--text2);font-size:11px;padding:4px 7px;border-radius:6px">'+opts+'</select></td></tr>';
   }).join('');
 }
 
