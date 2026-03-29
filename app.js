@@ -160,7 +160,7 @@ function applyFilter() {
 
 async function initDashboard() {
   try {
-    const [ventesAll, depsAll, employes, primes] = await Promise.all([
+    const [ventesAll, depsAll, empAll, primesAll] = await Promise.all([
       dbGet('ventes', {}),
       dbGet('depenses', {}),
       dbGet('employes', {}),
@@ -168,11 +168,8 @@ async function initDashboard() {
     ]);
     const ventes = filterDate !== 'all' ? ventesAll.filter(function(v){return v.date===filterDate;}) : ventesAll;
     const deps = filterDate !== 'all' ? depsAll.filter(function(d){return d.date===filterDate;}) : depsAll;
-    const r1 = {data: ventes}, r2 = {data: deps}, r3 = {data: employes}, r4 = {data: primes};
-    const ventes = r1.data || [];
-    const deps = r2.data || [];
-    const employes = r3.data || [];
-    const primes = r4.data || [];
+    const employes = empAll;
+    const primes = primesAll;
 
     const ca = ventes.reduce(function(s,v) { return s + (v.quantite_vendue||0)*(v.prix_vente||0); }, 0);
     const tdep = deps.reduce(function(s,d) { return s + (d.montant||0); }, 0);
