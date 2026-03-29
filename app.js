@@ -1,11 +1,64 @@
 // ============================================
-// CONFIGURATION SUPABASE
+// CONFIGURATION SUPABASE + AUTH
 // ============================================
 const SUPABASE_URL = 'https://yhygidfyssfgxljbtlmd.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_KyUpAkclg-xjqMLjSvftIA_oJrJyefV';
 const { createClient } = supabase;
 const db = createClient(SUPABASE_URL, SUPABASE_KEY);
 
+let currentUser = null;
+let currentRole = null;
+
+// ROLES: proprietaire > gerant > gerant_jour > comptable
+const ROLE_LEVEL = { proprietaire: 4, gerant: 3, gerant_jour: 2, comptable: 1 };
+const ROLE_LABELS = { proprietaire: 'Proprietaire', gerant: 'Gerant principal', gerant_jour: 'Gerant du jour', comptable: 'Comptable' };
+
+function hasAccess(minRole) {
+  return (ROLE_LEVEL[currentRole] || 0) >= (ROLE_LEVEL[minRole] || 0);
+}
+
+async function initAuth() {
+  const { data: { session } } = await db.auth.getSession();
+  if (!session) { window.location.href = 'index.html'; return; }
+  currentUser = session.user;
+  // Charger le role
+  const { data: u } = await db.from('utilisateurs').select('nom,role').eq('id', currentUser.id).single();
+  currentRole = u ? u.role : 'gerant_jour';
+  const nom = u ? u.nom : currentUser.email;
+  // Afficher infos utilisateur
+  const av = document.getElementById('user-avatar');
+  const un = document.getElementById('user-name');
+  const ur = document.getElementById('user-role');
+  if(av) av.textContent = nom.substring(0,2).toUpperCase();
+  if(un) un.textContent = nom;
+  if(ur) ur.textContent = ROLE_LABELS[currentRole] || currentRole;
+  // Masquer les sections selon le role
+  applyRoleRestrictions();
+}
+
+function applyRoleRestrictions() {
+  // Gerant du jour: saisie ventes uniquement
+  if (currentRole === 'gerant_jour') {
+    ['nav-stocks','nav-depenses','nav-achats','nav-employes','nav-presences','nav-salaires','nav-analyse'].forEach(function(id) {
+      var el = document.getElementById(id);
+      if(el) el.style.display = 'none';
+    });
+  }
+  // Comptable: pas de saisie
+  if (currentRole === 'comptable') {
+    ['nav-employes','nav-presences','nav-salaires'].forEach(function(id) {
+      var el = document.getElementById(id);
+      if(el) el.style.display = 'none';
+    });
+  }
+}
+
+async function logout() {
+  await db.auth.signOut();
+  window.location.href = 'index.html';
+}
+
+// ============================================
 const fmt = n => Math.round(n).toLocaleString('fr-FR');
 const fmtK = n => n >= 1000000 ? (n/1000000).toFixed(1)+'M' : n >= 1000 ? Math.round(n/1000)+'k' : Math.round(n);
 const charts = {};
@@ -40,6 +93,7 @@ function showToast(msg, type) {
 }
 
 async function checkConnection() {
+  await initAuth();
   try {
     const { data, error } = await db.from('produits').select('count').limit(1);
     if (error) throw error;
@@ -559,6 +613,7 @@ function go(id, el) {
   else if(id==='presences') initPresences();
   else if(id==='salaires') initSalaires();
   else if(id==='analyse') initAnalyse();
+  else if(id==='admin') loadAdminUsers();
 }
 
 function swTab(el, tabId) {
@@ -573,3 +628,21 @@ function swTab(el, tabId) {
 
 checkConnection();
 initDashboard();
+
+async function loadAdminUsers() {
+  var r = await db.from('utilisateurs').select('id,nom,role');
+  var users = r.data || [];
+  var roles = ['proprietaire','gerant','gerant_jour','comptable'];
+  var labels = {'proprietaire':'Proprietaire','gerant':'Gerant principal','gerant_jour':'Gerant du jour','comptable':'Comptable'};
+  document.getElementById('admin-users-body').innerHTML = users.map(function(u) {
+    var opts = roles.map(function(r){ return '<option value="'+r+'"'+(u.role===r?' selected':'')+'>'+labels[r]+'</option>'; }).join('');
+    return '<tr><td>'+u.nom+'</td><td><span class="badge badge-green">'+labels[u.role]+'</span></td>'
+      +'<td><select onchange="updateUserRole(''+u.id+'',this.value)" style="background:var(--bg3);border:1px solid var(--border2);color:var(--text2);font-size:11px;padding:4px 7px;border-radius:6px">'+opts+'</select></td></tr>';
+  }).join('');
+}
+
+async function updateUserRole(userId, newRole) {
+  var r = await db.from('utilisateurs').update({role: newRole}).eq('id', userId);
+  if (r.error) { showToast('Erreur: '+r.error.message, 'error'); return; }
+  showToast('Role mis a jour !');
+}
