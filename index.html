@@ -470,56 +470,5 @@
 <div class="toast" id="toast"></div>
 
 <script src="app.js"></script>
-</body></html>`);
-  win.document.close();
-}
-
-// ============================================
-// NAVIGATION
-// ============================================
-function go(id, el) {
-  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
-  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
-  document.getElementById('page-'+id).classList.add('active');
-  if(el) el.classList.add('active');
-  const titles = { dashboard:'Tableau de bord', ventes:'Ventes', stocks:'Stocks', depenses:'Dépenses', achats:'Achats', employes:'Employés', presences:'Présences', salaires:'Salaires', analyse:'Rapports & Analyses' };
-  document.getElementById('pg-title').textContent = titles[id]||id;
-  if(id==='dashboard') initDashboard();
-  else if(id==='ventes') initVentes();
-  else if(id==='stocks') initStocks();
-  else if(id==='depenses') loadDepenses();
-  else if(id==='achats') initAchats();
-  else if(id==='employes') loadEmployes();
-  else if(id==='presences') initPresences();
-  else if(id==='salaires') initSalaires();
-  else if(id==='analyse') initAnalyse();
-}
-
-function swTab(el, tabId) {
-  el.closest('.tabs').querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
-  el.classList.add('active');
-  const all = ['vt-saisie','vt-hist','emp-list','emp-add','an-prod','an-rh'];
-  all.forEach(id=>{ const e=document.getElementById(id); if(e) e.style.display='none'; });
-  const target = document.getElementById(tabId);
-  if(target) target.style.display='';
-  if(tabId==='vt-hist') loadHistVentes();
-  if(tabId==='an-rh') {} // déjà chargé
-}
-
-// ============================================
-// INIT
-// ============================================
-checkConnection();
-initDashboard();
-</script>
-<script>
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js')
-      .then(() => console.log('SW OK'))
-      .catch(e => console.log('SW erreur:', e));
-  });
-}
-</script>
-</body>
-</html>
+</body></html>
+ 
