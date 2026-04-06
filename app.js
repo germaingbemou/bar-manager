@@ -115,7 +115,7 @@ async function initPrimesGerant() {
       + '<td style="font-family:var(--mono);font-weight:500;color:var(--accent)">' + fmt(p.prime) + ' GNF</td>'
       + '<td>' + (dejaEnr
           ? '<span class="badge badge-green">Enregistree</span>'
-          : '<button class="btn btn-accent" style="font-size:10px;padding:3px 8px" onclick="enregistrerPrime('' + p.date + '','' + (p.employe_id||'') + '','' + p.gerant + '',' + p.prime + ')">Ajouter</button>')
+          : '<button class="btn btn-accent" style="font-size:10px;padding:3px 8px" onclick="enregistrerPrime(this)" data-date="' + p.date + '" data-empid="' + (p.employe_id||'') + '" data-gerant="' + p.gerant + '" data-prime="' + p.prime + '">Ajouter</button>')
       + '</td></tr>';
   }).join('') || '<tr><td colspan="6" class="empty">Aucune vente enregistree</td></tr>';
 
@@ -125,7 +125,11 @@ async function initPrimesGerant() {
   if (el) el.textContent = 'Total primes gerants : ' + fmt(totalPrimes) + ' GNF';
 }
 
-async function enregistrerPrime(date, empId, gerant, montant) {
+async function enregistrerPrime(btn) {
+  var date = btn.dataset.date;
+  var empId = btn.dataset.empid;
+  var gerant = btn.dataset.gerant;
+  var montant = parseInt(btn.dataset.prime);
   if (!empId) { showToast('Employe introuvable pour ' + gerant, 'error'); return; }
   var r = await db.from('primes').insert({
     employe_id: empId,
