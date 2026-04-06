@@ -100,6 +100,130 @@
   .sec { font-size: 10px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: .08em; font-family: var(--mono); margin-bottom: 10px; margin-top: 16px; }
   .sec:first-child { margin-top: 0; }
   .access-denied { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 60px; color: var(--text3); font-family: var(--mono); font-size: 12px; gap: 10px; }
+
+/* ============================================
+   RESPONSIVE MOBILE
+   ============================================ */
+
+/* Bouton hamburger (visible seulement mobile) */
+.hamburger {
+  display: none;
+  flex-direction: column;
+  gap: 5px;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 8px;
+  border: 1px solid var(--border2);
+  background: var(--bg3);
+}
+.hamburger span {
+  width: 18px; height: 2px;
+  background: var(--text2);
+  border-radius: 2px;
+  transition: all .25s;
+}
+.hamburger.open span:nth-child(1) { transform: rotate(45deg) translate(5px, 5px); }
+.hamburger.open span:nth-child(2) { opacity: 0; }
+.hamburger.open span:nth-child(3) { transform: rotate(-45deg) translate(5px, -5px); }
+
+/* Overlay sombre derrière sidebar mobile */
+.sidebar-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  z-index: 99;
+}
+.sidebar-overlay.active { display: block; }
+
+@media (max-width: 768px) {
+  /* Layout principal */
+  .app { flex-direction: column; }
+
+  /* Sidebar devient un panneau glissant */
+  .sidebar {
+    position: fixed;
+    top: 0; left: 0;
+    height: 100vh;
+    width: 240px;
+    transform: translateX(-100%);
+    transition: transform .28s ease;
+    z-index: 100;
+    box-shadow: 4px 0 20px rgba(0,0,0,0.4);
+  }
+  .sidebar.open { transform: translateX(0); }
+
+  /* Topbar mobile */
+  .topbar {
+    padding: 10px 14px;
+    gap: 6px;
+  }
+  .topbar-actions { display: none; }
+  .hamburger { display: flex; }
+
+  /* Contenu */
+  .content { padding: 12px; }
+
+  /* Grilles — tout en colonne sur mobile */
+  .g4 { grid-template-columns: repeat(2, minmax(0,1fr)); }
+  .g3 { grid-template-columns: repeat(2, minmax(0,1fr)); }
+  .g2 { grid-template-columns: minmax(0,1fr); }
+
+  /* Métriques plus compactes */
+  .metric-value { font-size: 16px; }
+  .metric { padding: 10px; }
+
+  /* Tableaux scrollables horizontalement */
+  .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  table { min-width: 500px; }
+
+  /* Formulaires en colonne */
+  .f4 { grid-template-columns: 1fr 1fr; }
+  .f3 { grid-template-columns: 1fr; }
+  .f2 { grid-template-columns: 1fr; }
+
+  /* Cards */
+  .card { padding: 12px; }
+  .card-title { font-size: 11px; }
+
+  /* Graphiques moins hauts */
+  .chart-wrap[style*="height:200px"] { height: 160px !important; }
+  .chart-wrap[style*="height:180px"] { height: 150px !important; }
+  .chart-wrap[style*="height:160px"] { height: 140px !important; }
+  .chart-wrap[style*="height:220px"] { height: 170px !important; }
+
+  /* Grille employés */
+  #emp-grid { grid-template-columns: repeat(2, minmax(0,1fr)) !important; }
+
+  /* Calendrier présences */
+  .cal-day { font-size: 9px; }
+
+  /* Tabs */
+  .tab { padding: 5px 10px; font-size: 10px; }
+
+  /* Boutons topbar actions — afficher sous la topbar */
+  .mobile-actions {
+    display: flex;
+    gap: 6px;
+    padding: 8px 14px;
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Masquer le titre subtitle sur mobile */
+  .topbar-left .subtitle { display: none; }
+  .topbar-left .title { font-size: 13px; }
+}
+
+@media (max-width: 400px) {
+  .g4 { grid-template-columns: repeat(2, minmax(0,1fr)); }
+  #emp-grid { grid-template-columns: minmax(0,1fr) !important; }
+  .metric-value { font-size: 14px; }
+}
+
 </style>
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#0f0f11">
@@ -110,7 +234,8 @@
   <link rel="apple-touch-icon" href="icon-192.png">
 </head>
 <body>
-<div class="sidebar">
+<div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
+<div class="sidebar" id="sidebar">
   <div class="sidebar-logo">
     <div class="name">Bar Manager</div>
     <div class="sub">v3.0 · Supabase</div>
@@ -171,6 +296,9 @@
 </div>
 <div class="main">
   <div class="topbar">
+    <div class="hamburger" id="hamburger" onclick="toggleSidebar()">
+      <span></span><span></span><span></span>
+    </div>
     <div class="topbar-left">
       <div class="title" id="pg-title">Tableau de bord</div>
       <div class="subtitle" id="pg-sub">Chargement...</div>
@@ -188,7 +316,19 @@
       <button class="btn" onclick="exportPDF()">PDF</button>
     </div>
   </div>
-  <div class="content">
+  <div class="mobile-actions" id="mobile-actions">
+    <select id="flt-date-mob" style="background:var(--bg3);border:1px solid var(--border2);color:var(--text2);font-size:11px;padding:4px 8px;border-radius:8px;font-family:var(--font);flex-shrink:0" onchange="applyFilterMob()">
+      <option value="all">Toute la periode</option>
+      <option value="2025-06-01">01 juin</option>
+      <option value="2025-06-02">02 juin</option>
+      <option value="2025-06-03">03 juin</option>
+      <option value="2025-06-04">04 juin</option>
+      <option value="2025-06-05">05 juin</option>
+    </select>
+    <button class="btn btn-accent" onclick="exportCSV()" style="flex-shrink:0;font-size:10px;padding:4px 9px">CSV</button>
+    <button class="btn" onclick="exportPDF()" style="flex-shrink:0;font-size:10px;padding:4px 9px">PDF</button>
+  </div>
+<div class="content">
     <div class="page active" id="page-dashboard">
       <div class="sec">Resume financier</div>
       <div class="mgrid g4">
@@ -410,6 +550,42 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js').catch(function(e){console.log('SW:', e);});
   });
 }
+</script>
+
+<script>
+function toggleSidebar() {
+  var s = document.getElementById('sidebar');
+  var h = document.getElementById('hamburger');
+  var o = document.getElementById('sidebar-overlay');
+  s.classList.toggle('open');
+  h.classList.toggle('open');
+  o.classList.toggle('active');
+}
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('hamburger').classList.remove('open');
+  document.getElementById('sidebar-overlay').classList.remove('active');
+}
+// Fermer sidebar quand on clique un lien nav sur mobile
+document.querySelectorAll('.nav-item').forEach(function(el) {
+  el.addEventListener('click', function() {
+    if (window.innerWidth <= 768) closeSidebar();
+  });
+});
+function applyFilterMob() {
+  var val = document.getElementById('flt-date-mob').value;
+  var desktop = document.getElementById('flt-date');
+  if (desktop) desktop.value = val;
+  applyFilter();
+}
+// Masquer mobile-actions sur desktop
+function checkMobileActions() {
+  var ma = document.getElementById('mobile-actions');
+  if (!ma) return;
+  ma.style.display = window.innerWidth <= 768 ? 'flex' : 'none';
+}
+window.addEventListener('resize', checkMobileActions);
+checkMobileActions();
 </script>
 </body>
 </html>
