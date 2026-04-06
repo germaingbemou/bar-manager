@@ -35,6 +35,139 @@ function invalidateCache(table) {
   });
 }
 
+
+// ============================================
+// CALCUL AUTOMATIQUE DES PRIMES GERANT
+// Formule : 10 000 GNF par tranche de 500 000 GNF de CA
+// ============================================
+const PRIME_CONFIG = {
+  tranche: 500000,   // CA par tranche
+  montant: 10000,    // Prime par tranche
+};
+
+function calculerPrimeGerant(caJour) {
+  var tranches = Math.floor(caJour / PRIME_CONFIG.tranche);
+  return tranches * PRIME_CONFIG.montant;
+}
+
+async function calculerEtAfficherPrimes() {
+  // Charger les ventes par jour avec leur gérant
+  var ventes = await dbGet('ventes', {});
+  var employes = await dbGet('employes', {});
+
+  // Grouper le CA par jour et par gérant
+  var caParJourGerant = {};
+  ventes.forEach(function(v) {
+    var key = v.date + '__' + v.gerant;
+    caParJourGerant[key] = (caParJourGerant[key] || 0) + (v.quantite_vendue || 0) * (v.prix_vente || 0);
+  });
+
+  // Calculer les primes
+  var primesCalculees = [];
+  Object.entries(caParJourGerant).forEach(function(entry) {
+    var key = entry[0], ca = entry[1];
+    var parts = key.split('__');
+    var date = parts[0], gerant = parts[1];
+    if (!gerant) return;
+    var prime = calculerPrimeGerant(ca);
+    if (prime > 0) {
+      var emp = employes.find(function(e) { return e.nom === gerant; });
+      primesCalculees.push({
+        date: date,
+        gerant: gerant,
+        employe_id: emp ? emp.id : null,
+        ca: ca,
+        tranches: Math.floor(ca / PRIME_CONFIG.tranche),
+        prime: prime
+      });
+    }
+  });
+
+  return primesCalculees.sort(function(a,b) { return b.date > a.date ? 1 : -1; });
+}
+
+async function initPrimesGerant() {
+  var primesCalculees = await calculerEtAfficherPrimes();
+  var primesSaved = await dbGet('primes', {});
+
+  // Afficher le panneau
+  var panel = document.getElementById('primes-panel');
+  if (!panel) return;
+
+  // Config actuelle
+  document.getElementById('prime-tranche').value = PRIME_CONFIG.tranche;
+  document.getElementById('prime-montant').value = PRIME_CONFIG.montant;
+
+  // Tableau des primes calculées
+  var tbody = document.getElementById('primes-calc-body');
+  if (!tbody) return;
+
+  tbody.innerHTML = primesCalculees.map(function(p) {
+    // Vérifier si déjà enregistrée
+    var dejaEnr = primesSaved.some(function(ps) {
+      return ps.date === p.date && ps.employe_id === p.employe_id && ps.type_prime === 'Prime CA gerant';
+    });
+    return '<tr>'
+      + '<td>' + p.date + '</td>'
+      + '<td style="font-weight:500;color:var(--accent)">' + p.gerant + '</td>'
+      + '<td style="font-family:var(--mono)">' + fmt(p.ca) + ' GNF</td>'
+      + '<td style="font-family:var(--mono)">' + p.tranches + ' tranches</td>'
+      + '<td style="font-family:var(--mono);font-weight:500;color:var(--accent)">' + fmt(p.prime) + ' GNF</td>'
+      + '<td>' + (dejaEnr
+          ? '<span class="badge badge-green">Enregistree</span>'
+          : '<button class="btn btn-accent" style="font-size:10px;padding:3px 8px" onclick="enregistrerPrime('' + p.date + '','' + (p.employe_id||'') + '','' + p.gerant + '',' + p.prime + ')">Ajouter</button>')
+      + '</td></tr>';
+  }).join('') || '<tr><td colspan="6" class="empty">Aucune vente enregistree</td></tr>';
+
+  // Total primes du mois
+  var totalPrimes = primesCalculees.reduce(function(s,p){return s+p.prime;}, 0);
+  var el = document.getElementById('prime-total');
+  if (el) el.textContent = 'Total primes gerants : ' + fmt(totalPrimes) + ' GNF';
+}
+
+async function enregistrerPrime(date, empId, gerant, montant) {
+  if (!empId) { showToast('Employe introuvable pour ' + gerant, 'error'); return; }
+  var r = await db.from('primes').insert({
+    employe_id: empId,
+    type_prime: 'Prime CA gerant',
+    montant: montant,
+    date: date
+  });
+  if (r.error) { showToast('Erreur: ' + r.error.message, 'error'); return; }
+  invalidateCache('primes');
+  showToast('Prime de ' + fmt(montant) + ' GNF enregistree pour ' + gerant + ' !');
+  initPrimesGerant();
+}
+
+async function enregistrerToutesPrimes() {
+  var primesCalculees = await calculerEtAfficherPrimes();
+  var primesSaved = await dbGet('primes', {});
+  var nouvelles = primesCalculees.filter(function(p) {
+    return p.employe_id && !primesSaved.some(function(ps) {
+      return ps.date === p.date && ps.employe_id === p.employe_id && ps.type_prime === 'Prime CA gerant';
+    });
+  });
+  if (!nouvelles.length) { showToast('Toutes les primes sont deja enregistrees'); return; }
+  var rows = nouvelles.map(function(p) {
+    return { employe_id: p.employe_id, type_prime: 'Prime CA gerant', montant: p.prime, date: p.date };
+  });
+  var r = await db.from('primes').insert(rows);
+  if (r.error) { showToast('Erreur: ' + r.error.message, 'error'); return; }
+  invalidateCache('primes');
+  showToast(nouvelles.length + ' prime(s) enregistree(s) !');
+  initPrimesGerant();
+}
+
+function updatePrimeConfig() {
+  var t = parseInt(document.getElementById('prime-tranche').value) || 500000;
+  var m = parseInt(document.getElementById('prime-montant').value) || 10000;
+  PRIME_CONFIG.tranche = t;
+  PRIME_CONFIG.montant = m;
+  showToast('Formule mise a jour : ' + fmt(m) + ' GNF / ' + fmt(t) + ' GNF de CA');
+  initPrimesGerant();
+}
+
+
 // Précharger toutes les données au démarrage
 async function preloadData() {
   await Promise.all([
@@ -659,6 +792,7 @@ function go(id, el) {
   else if(id==='salaires') initSalaires();
   else if(id==='analyse') initAnalyse();
   else if(id==='admin') loadAdminUsers();
+  else if(id==='primes-gerant') initPrimesGerant();
 }
 
 function swTab(el, tabId) {
