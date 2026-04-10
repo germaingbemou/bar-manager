@@ -288,12 +288,133 @@ async function checkConnection() {
   }
 }
 
-let filterDate = 'all';
-function applyFilter() {
-  filterDate = document.getElementById('flt-date').value;
-  const page = document.querySelector('.page.active').id.replace('page-','');
-  if (page === 'dashboard') initDashboard();
+
+// ============================================
+// FILTRE PAR PÉRIODE
+// ============================================
+var filterDebut = null;  // null = pas de filtre
+var filterFin = null;
+
+function getWeekBounds() {
+  // Semaine Dimanche → Samedi
+  var today = new Date();
+  var day = today.getDay(); // 0=Dim, 6=Sam
+  var debut = new Date(today);
+  debut.setDate(today.getDate() - day); // Dimanche
+  var fin = new Date(debut);
+  fin.setDate(debut.getDate() + 6); // Samedi
+  return {
+    debut: debut.toISOString().split('T')[0],
+    fin: fin.toISOString().split('T')[0]
+  };
 }
+
+function getMonthBounds() {
+  var today = new Date();
+  var debut = new Date(today.getFullYear(), today.getMonth(), 1);
+  var fin = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+  return {
+    debut: debut.toISOString().split('T')[0],
+    fin: fin.toISOString().split('T')[0]
+  };
+}
+
+function setQuickFilter(type) {
+  // Mettre à jour les boutons actifs
+  ['btn-today','btn-week','btn-month','btn-all'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.classList.remove('active');
+  });
+  var activeBtn = document.getElementById('btn-'+type);
+  if (activeBtn) activeBtn.classList.add('active');
+
+  var today = new Date().toISOString().split('T')[0];
+
+  if (type === 'all') {
+    filterDebut = null;
+    filterFin = null;
+    setDateInputs('', '');
+  } else if (type === 'today') {
+    filterDebut = today;
+    filterFin = today;
+    setDateInputs(today, today);
+  } else if (type === 'week') {
+    var bounds = getWeekBounds();
+    filterDebut = bounds.debut;
+    filterFin = bounds.fin;
+    setDateInputs(bounds.debut, bounds.fin);
+  } else if (type === 'month') {
+    var bounds = getMonthBounds();
+    filterDebut = bounds.debut;
+    filterFin = bounds.fin;
+    setDateInputs(bounds.debut, bounds.fin);
+  }
+  refreshDashboardWithFilter();
+}
+
+function setDateInputs(debut, fin) {
+  ['flt-debut','flt-debut-mob'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.value = debut;
+  });
+  ['flt-fin','flt-fin-mob'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.value = fin;
+  });
+}
+
+function applyCustomFilter() {
+  var debut = document.getElementById('flt-debut');
+  var fin = document.getElementById('flt-fin');
+  if (!debut || !fin) return;
+  filterDebut = debut.value || null;
+  filterFin = fin.value || null;
+  // Synchro mobile
+  setDateInputs(debut.value, fin.value);
+  // Désactiver les boutons rapides
+  ['btn-today','btn-week','btn-month','btn-all'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.classList.remove('active');
+  });
+  refreshDashboardWithFilter();
+}
+
+function applyCustomFilterMob() {
+  var debut = document.getElementById('flt-debut-mob');
+  var fin = document.getElementById('flt-fin-mob');
+  if (!debut || !fin) return;
+  filterDebut = debut.value || null;
+  filterFin = fin.value || null;
+  setDateInputs(debut.value, fin.value);
+  refreshDashboardWithFilter();
+}
+
+function filterVentes(ventes) {
+  if (!filterDebut && !filterFin) return ventes;
+  return ventes.filter(function(v) {
+    if (filterDebut && v.date < filterDebut) return false;
+    if (filterFin && v.date > filterFin) return false;
+    return true;
+  });
+}
+
+function filterDeps(deps) {
+  if (!filterDebut && !filterFin) return deps;
+  return deps.filter(function(d) {
+    if (filterDebut && d.date < filterDebut) return false;
+    if (filterFin && d.date > filterFin) return false;
+    return true;
+  });
+}
+
+async function refreshDashboardWithFilter() {
+  var page = document.querySelector('.page.active');
+  if (!page) return;
+  var pageId = page.id.replace('page-','');
+  if (pageId === 'dashboard') initDashboard();
+}
+
+
 
 async function initDashboard() {
   try {
@@ -303,8 +424,8 @@ async function initDashboard() {
       dbGet('employes', {}),
       dbGet('primes', {})
     ]);
-    const ventes = filterDate !== 'all' ? ventesAll.filter(function(v){return v.date===filterDate;}) : ventesAll;
-    const deps = filterDate !== 'all' ? depsAll.filter(function(d){return d.date===filterDate;}) : depsAll;
+    const ventes = filterVentes(ventesAll);
+    const deps = filterDeps(depsAll);
     const employes = empAll;
     const primes = primesAll;
 

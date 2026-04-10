@@ -308,27 +308,32 @@
       <div class="subtitle" id="pg-sub">Chargement...</div>
     </div>
     <div class="topbar-actions">
-      <select id="flt-date" style="background:var(--bg3);border:1px solid var(--border2);color:var(--text2);font-size:11px;padding:5px 9px;border-radius:8px;font-family:var(--font)" onchange="applyFilter()">
-        <option value="all">Toute la periode</option>
-        <option value="2025-06-01">01 juin</option>
-        <option value="2025-06-02">02 juin</option>
-        <option value="2025-06-03">03 juin</option>
-        <option value="2025-06-04">04 juin</option>
-        <option value="2025-06-05">05 juin</option>
-      </select>
+      <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap">
+        <div style="display:flex;gap:3px">
+          <button class="btn" id="btn-today" onclick="setQuickFilter('today')" style="font-size:10px;padding:4px 8px">Aujourd'hui</button>
+          <button class="btn" id="btn-week" onclick="setQuickFilter('week')" style="font-size:10px;padding:4px 8px">Semaine</button>
+          <button class="btn" id="btn-month" onclick="setQuickFilter('month')" style="font-size:10px;padding:4px 8px">Mois</button>
+          <button class="btn active" id="btn-all" onclick="setQuickFilter('all')" style="font-size:10px;padding:4px 8px">Tout</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:4px">
+          <input type="date" id="flt-debut" style="background:var(--bg3);border:1px solid var(--border2);color:var(--text2);font-size:11px;padding:4px 7px;border-radius:8px;font-family:var(--font)" onchange="applyCustomFilter()">
+          <span style="color:var(--text3);font-size:11px">→</span>
+          <input type="date" id="flt-fin" style="background:var(--bg3);border:1px solid var(--border2);color:var(--text2);font-size:11px;padding:4px 7px;border-radius:8px;font-family:var(--font)" onchange="applyCustomFilter()">
+        </div>
+      </div>
       <button class="btn btn-accent" onclick="exportCSV()">CSV</button>
       <button class="btn" onclick="exportPDF()">PDF</button>
     </div>
   </div>
   <div class="mobile-actions" id="mobile-actions">
-    <select id="flt-date-mob" style="background:var(--bg3);border:1px solid var(--border2);color:var(--text2);font-size:11px;padding:4px 8px;border-radius:8px;font-family:var(--font);flex-shrink:0" onchange="applyFilterMob()">
-      <option value="all">Toute la periode</option>
-      <option value="2025-06-01">01 juin</option>
-      <option value="2025-06-02">02 juin</option>
-      <option value="2025-06-03">03 juin</option>
-      <option value="2025-06-04">04 juin</option>
-      <option value="2025-06-05">05 juin</option>
-    </select>
+    <div style="display:flex;gap:3px;flex-shrink:0">
+      <button class="btn" onclick="setQuickFilter('today')" style="font-size:10px;padding:3px 7px">Auj.</button>
+      <button class="btn" onclick="setQuickFilter('week')" style="font-size:10px;padding:3px 7px">Sem.</button>
+      <button class="btn" onclick="setQuickFilter('month')" style="font-size:10px;padding:3px 7px">Mois</button>
+      <button class="btn" onclick="setQuickFilter('all')" style="font-size:10px;padding:3px 7px">Tout</button>
+    </div>
+    <input type="date" id="flt-debut-mob" style="background:var(--bg3);border:1px solid var(--border2);color:var(--text2);font-size:11px;padding:3px 7px;border-radius:8px;flex-shrink:0" onchange="applyCustomFilterMob()">
+    <input type="date" id="flt-fin-mob" style="background:var(--bg3);border:1px solid var(--border2);color:var(--text2);font-size:11px;padding:3px 7px;border-radius:8px;flex-shrink:0" onchange="applyCustomFilterMob()">
     <button class="btn btn-accent" onclick="exportCSV()" style="flex-shrink:0;font-size:10px;padding:4px 9px">CSV</button>
     <button class="btn" onclick="exportPDF()" style="flex-shrink:0;font-size:10px;padding:4px 9px">PDF</button>
   </div>
