@@ -434,7 +434,7 @@ async function initStocks() {
       +'<td><div style="display:flex;align-items:center;gap:4px">'
         +'<input type="number" value="'+seuil+'" min="0" max="999" id="seuil-'+p.id+'" '
           +'style="width:55px;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;color:var(--text);padding:2px 5px;font-size:11px;font-family:var(--mono)">'
-        +'<button class="btn btn-accent" style="padding:2px 7px;font-size:10px" onclick="saveSeuil(''+p.id+'')">OK</button>'
+        +'<button class="btn btn-accent" style="padding:2px 7px;font-size:10px" data-id="'+p.id+'" onclick="saveSeuil(this.dataset.id)">OK</button>'
       +'</div></td>'
       +'</tr>';
   }).join('');
