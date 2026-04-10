@@ -411,29 +411,50 @@ async function loadHistVentes() {
 
 async function initStocks() {
   document.getElementById('stock-loading').style.display = 'flex';
-  var allProds = await dbGet('produits', {order: 'nom'}); var r = { data: allProds.slice().sort(function(a,b){return (b.stock||0)-(a.stock||0);}) };
+  var r = await db.from('produits').select('*').order('stock', {ascending: false});
   document.getElementById('stock-loading').style.display = 'none';
   var produits = r.data || [];
   var ok=0, faible=0, rupture=0;
   var low = [];
   document.getElementById('s-body').innerHTML = produits.map(function(p) {
+    var seuil = p.seuil_alerte || 10;
     var pct = Math.min(100, Math.round((p.stock||0)/120*100));
-    var st = (p.stock||0) === 0 ? 'rupture' : (p.stock||0) < 10 ? 'faible' : 'ok';
+    var st = (p.stock||0) === 0 ? 'rupture' : (p.stock||0) <= seuil ? 'faible' : 'ok';
     if(st==='ok') ok++; else if(st==='faible'){faible++;low.push(p.nom);} else{rupture++;low.push(p.nom);}
     var col = st==='ok'?'#6ee7b7':st==='faible'?'#fbbf24':'#f87171';
     var bc = st==='ok'?'badge-green':st==='faible'?'badge-yellow':'badge-red';
     var bt = st==='ok'?'En stock':st==='faible'?'Faible':'Rupture';
-    return '<tr><td>'+p.nom+'</td><td style="font-family:var(--mono)">'+(p.stock||0)+'</td>'
-      +'<td style="min-width:90px"><div class="prog"><div class="prog-fill" style="width:'+pct+'%;background:'+col+'"></div></div></td>'
-      +'<td style="font-family:var(--mono)">'+fmt(p.prix_vente||0)+'</td>'
-      +'<td style="font-family:var(--mono)">'+(p.prix_achat>0?fmt(p.prix_achat):'—')+'</td>'
-      +'<td><span class="badge '+bc+'">'+bt+'</span></td></tr>';
+    return '<tr>'
+      +'<td>'+p.nom+'</td>'
+      +'<td style="font-family:var(--mono);font-weight:500">'+(p.stock||0)+'</td>'
+      +'<td style="min-width:80px"><div class="prog"><div class="prog-fill" style="width:'+pct+'%;background:'+col+'"></div></div></td>'
+      +'<td style="font-family:var(--mono)">'+fmt(p.prix_vente||0)+' GNF</td>'
+      +'<td style="font-family:var(--mono)">'+(p.prix_achat>0?fmt(p.prix_achat)+' GNF':'—')+'</td>'
+      +'<td><span class="badge '+bc+'">'+bt+'</span></td>'
+      +'<td><div style="display:flex;align-items:center;gap:4px">'
+        +'<input type="number" value="'+seuil+'" min="0" max="999" id="seuil-'+p.id+'" '
+          +'style="width:55px;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;color:var(--text);padding:2px 5px;font-size:11px;font-family:var(--mono)">'
+        +'<button class="btn btn-accent" style="padding:2px 7px;font-size:10px" onclick="saveSeuil(''+p.id+'')">OK</button>'
+      +'</div></td>'
+      +'</tr>';
   }).join('');
   var al = document.getElementById('stock-alert-txt');
-  if (low.length && al) al.textContent = '⚠ '+low.length+' alerte(s)';
+  if (low.length && al) al.textContent = String.fromCharCode(9888)+' '+low.length+' alerte(s)';
+  else if (al) al.textContent = '';
   var top12 = produits.slice(0,12);
-  mk('c-stock', { type:'bar', data: { labels: top12.map(function(p){return p.nom.split(' ').slice(0,2).join(' ');}), datasets: [{ data: top12.map(function(p){return p.stock||0;}), backgroundColor: top12.map(function(p){return (p.stock||0)===0?'#f87171':(p.stock||0)<10?'#fbbf24':'#6ee7b7';}), borderRadius: 3 }] }, options: { indexAxis:'y' } });
-  mk('c-stock-pie', { type:'pie', data: { labels: ['En stock','Faible','Rupture'], datasets: [{ data:[ok,faible,rupture], backgroundColor:['#6ee7b7','#fbbf24','#f87171'], borderWidth:0 }] }, options: { plugins: { legend: { display:true, position:'bottom', labels:{color:'#9090a8',font:{size:10}} } } } });
+  mk('c-stock', {type:'bar',data:{labels:top12.map(function(p){return p.nom.split(' ').slice(0,2).join(' ');}),datasets:[{data:top12.map(function(p){return p.stock||0;}),backgroundColor:top12.map(function(p){return (p.stock||0)===0?'#f87171':(p.stock||0)<=(p.seuil_alerte||10)?'#fbbf24':'#6ee7b7';}),borderRadius:3}]},options:{indexAxis:'y'}});
+  mk('c-stock-pie',{type:'pie',data:{labels:['En stock','Faible','Rupture'],datasets:[{data:[ok,faible,rupture],backgroundColor:['#6ee7b7','#fbbf24','#f87171'],borderWidth:0}]},options:{plugins:{legend:{display:true,position:'bottom',labels:{color:'#9090a8',font:{size:10}}}}}});
+}
+
+async function saveSeuil(produitId) {
+  var input = document.getElementById('seuil-'+produitId);
+  if (!input) return;
+  var seuil = parseInt(input.value) || 0;
+  var r = await db.from('produits').update({ seuil_alerte: seuil }).eq('id', produitId);
+  if (r.error) { showToast('Erreur: '+r.error.message, 'error'); return; }
+  invalidateCache('produits');
+  showToast('Seuil mis a jour !');
+  initStocks();
 }
 
 async function loadDepenses() {
