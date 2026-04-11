@@ -498,7 +498,7 @@ async function chargerStocksDate(date) {
       ? (venteExist.stock_initial || 0)
       : (venteVeille ? (venteVeille.stock_apres || 0) : (p.stock || 0));
     var stockRecu = venteExist ? (venteExist.stock_recu || 0) : 0;
-    var stockApres = venteExist ? (venteExist.stock_apres || stockInit) : stockInit;
+    var stockApres = venteExist ? (venteExist.stock_apres || 0) : 0;
     var estSaisi = venteExist ? true : false;
 
     var rowStyle = estSaisi ? 'background:rgba(110,231,183,0.04)' : '';
