@@ -672,7 +672,7 @@ async function loadEmployes() {
   var COLORS = ['#6ee7b7','#3b82f6','#fbbf24','#a78bfa','#f87171','#34d399','#60a5fa'];
   window._employes_data = employes;
   renderEmpListeGlobale(employes, primes, avances, presences);
-  document.getElementById('emp-grid').innerHTML = employes.map(function(e,i) {
+  if (document.getElementById('emp-grid')) document.getElementById('emp-grid').innerHTML = employes.map(function(e,i) {
     var pr = primes.filter(function(p){return p.employe_id===e.id;}).reduce(function(s,p){return s+p.montant;}, 0);
     var jours = presences.filter(function(p){return p.employe_id===e.id&&p.statut==='present';}).length;
     var col = COLORS[i%COLORS.length];
