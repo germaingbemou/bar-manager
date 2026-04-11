@@ -524,20 +524,33 @@ async function chargerStocksDate(date) {
     }
   }
 
-  // Chercher la veille — stock initial = restant de la veille
+  // Stock initial = restant de la veille SEULEMENT si la veille a été saisie
+  var today = todayISO();
   var dateObj = new Date(date);
   dateObj.setDate(dateObj.getDate() - 1);
   var veille = dateObj.toISOString().split('T')[0];
   var ventesVeille = (await dbGet('ventes', {})).filter(function(v){ return v.date === veille; });
+  // Si date dans le futur ou veille sans données → stock initial = 0
+  var veilleDisponible = ventesVeille.length > 0;
+  var dateFuture = date > today;
 
   document.getElementById('v-body').innerHTML = produits.map(function(p,i) {
     // Si vente existante pour cette date → préremplir avec ses valeurs
     var venteExist = ventesDate.find(function(v){ return v.produit_nom === p.nom; });
-    // Stock initial = restant de la veille si disponible, sinon stock actuel
     var venteVeille = ventesVeille.find(function(v){ return v.produit_nom === p.nom; });
-    var stockInit = venteExist
-      ? (venteExist.stock_initial || 0)
-      : (venteVeille ? (venteVeille.stock_apres || 0) : (p.stock || 0));
+
+    // Logique stock initial :
+    // 1. Date déjà saisie → utiliser la valeur saisie
+    // 2. Veille disponible et date non future → restant de la veille
+    // 3. Sinon → 0
+    var stockInit;
+    if (venteExist) {
+      stockInit = venteExist.stock_initial || 0;
+    } else if (veilleDisponible && !dateFuture && venteVeille) {
+      stockInit = venteVeille.stock_apres || 0;
+    } else {
+      stockInit = 0;
+    }
     var stockRecu = venteExist ? (venteExist.stock_recu || 0) : 0;
     var stockApres = venteExist ? (venteExist.stock_apres || 0) : 0;
     var estSaisi = venteExist ? true : false;
