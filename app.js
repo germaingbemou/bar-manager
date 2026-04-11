@@ -9,7 +9,7 @@ const db = createClient(SUPABASE_URL, SUPABASE_KEY);
 // ============================================
 // CACHE LOCAL — données mémorisées 5 minutes
 // ============================================
-const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+const CACHE_TTL = 1 * 60 * 1000; // 1 minute
 const _cache = {};
 
 async function dbGet(table, query) {
