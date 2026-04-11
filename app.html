@@ -383,7 +383,22 @@
         </div>
       </div>
       <div id="vt-hist" style="display:none">
-        <div class="card"><div class="card-title">Historique des ventes</div>
+        <div class="card">
+          <div class="card-title">Historique des ventes</div>
+          <!-- Filtre période -->
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--border)">
+            <div style="display:flex;gap:4px">
+              <button class="btn active" id="vh-btn-today" onclick="setVhFilter('today')" style="font-size:10px;padding:4px 9px">Aujourd'hui</button>
+              <button class="btn" id="vh-btn-week" onclick="setVhFilter('week')" style="font-size:10px;padding:4px 9px">Semaine</button>
+              <button class="btn" id="vh-btn-month" onclick="setVhFilter('month')" style="font-size:10px;padding:4px 9px">Mois</button>
+              <button class="btn" id="vh-btn-all" onclick="setVhFilter('all')" style="font-size:10px;padding:4px 9px">Tout</button>
+            </div>
+            <div style="display:flex;align-items:center;gap:4px">
+              <input type="date" lang="fr-CA" id="vh-debut" style="background:var(--bg3);border:1px solid var(--border2);color:var(--text2);font-size:11px;padding:4px 7px;border-radius:8px" onchange="applyVhCustomFilter()">
+              <span style="color:var(--text3);font-size:11px">→</span>
+              <input type="date" lang="fr-CA" id="vh-fin" style="background:var(--bg3);border:1px solid var(--border2);color:var(--text2);font-size:11px;padding:4px 7px;border-radius:8px" onchange="applyVhCustomFilter()">
+            </div>
+          </div>
           <div class="loading" id="hist-loading"><div class="spinner"></div>Chargement...</div>
           <div class="table-wrap"><table>
             <thead><tr><th>Date</th><th>Produit</th><th>Vendus</th><th>Prix</th><th>Revenu</th><th>Gerant</th></tr></thead>

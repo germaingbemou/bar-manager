@@ -611,6 +611,52 @@ async function saveVentes() {
   invalidateCache('ventes'); invalidateCache('produits'); showToast(rows.length + ' ventes enregistrees !');
 }
 
+
+// ============================================
+// FILTRE HISTORIQUE VENTES
+// ============================================
+var vhDebut = null;
+var vhFin = null;
+
+function setVhFilter(type) {
+  // Boutons actifs
+  ['vh-btn-today','vh-btn-week','vh-btn-month','vh-btn-all'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.classList.remove('active');
+  });
+  var activeBtn = document.getElementById('vh-btn-'+type);
+  if (activeBtn) activeBtn.classList.add('active');
+
+  var today = todayISO();
+  if (type === 'today') {
+    vhDebut = today; vhFin = today;
+  } else if (type === 'week') {
+    var b = getWeekBounds(); vhDebut = b.debut; vhFin = b.fin;
+  } else if (type === 'month') {
+    var b = getMonthBounds(); vhDebut = b.debut; vhFin = b.fin;
+  } else {
+    vhDebut = null; vhFin = null;
+  }
+  // Mettre à jour les inputs date
+  var deb = document.getElementById('vh-debut');
+  var fin = document.getElementById('vh-fin');
+  if (deb) deb.value = vhDebut || '';
+  if (fin) fin.value = vhFin || '';
+  loadHistVentes();
+}
+
+function applyVhCustomFilter() {
+  var deb = document.getElementById('vh-debut');
+  var fin = document.getElementById('vh-fin');
+  vhDebut = deb ? deb.value || null : null;
+  vhFin = fin ? fin.value || null : null;
+  ['vh-btn-today','vh-btn-week','vh-btn-month','vh-btn-all'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.classList.remove('active');
+  });
+  loadHistVentes();
+}
+
 async function loadHistVentes() {
   document.getElementById('hist-loading').style.display = 'flex';
   var r = await db.from('ventes').select('*').order('date', {ascending: false}).limit(100);
@@ -1294,7 +1340,11 @@ function swTab(el, tabId) {
   all.forEach(function(id){ var e=document.getElementById(id); if(e) e.style.display='none'; });
   var target = document.getElementById(tabId);
   if(target) target.style.display='';
-  if(tabId==='vt-hist') loadHistVentes();
+  if(tabId==='vt-hist') {
+    // Initialiser filtre à Aujourd'hui par défaut
+    if (!vhDebut) setVhFilter('today');
+    else loadHistVentes();
+  }
   if(tabId==='emp-add') loadPostes();
 
 }
