@@ -275,7 +275,7 @@ function showToast(msg, type) {
 }
 
 async function checkConnection() {
-  await initAuth(); await preloadData();
+  await initAuth(); await Promise.all([preloadData(), chargerPostes()]);
   try {
     const { data, error } = await db.from('produits').select('count').limit(1);
     if (error) throw error;
@@ -705,6 +705,29 @@ async function addEmploye() {
   loadEmployes();
 }
 
+
+// ============================================
+// POSTES — chargés dynamiquement depuis Supabase
+// ============================================
+var _postes = ['Gerant','Barman','DJ','Serveuse','Agent de securite','Autre']; // défaut
+
+async function chargerPostes() {
+  var r = await db.from('postes').select('nom').order('nom');
+  if (r.data && r.data.length > 0) {
+    _postes = r.data.map(function(p){ return p.nom; });
+  }
+  // Mettre à jour tous les selects de poste
+  var selects = ['e-poste', 'mod-poste'];
+  selects.forEach(function(id) {
+    var sel = document.getElementById(id);
+    if (!sel) return;
+    var current = sel.value;
+    sel.innerHTML = _postes.map(function(p) {
+      return '<option value="'+p+'"'+(p===current?' selected':'')+'>'+p+'</option>';
+    }).join('');
+  });
+}
+
 var presencesCache = {};
 async function initPresences() {
   const [pres_e, pres_p] = await Promise.all([dbGet('employes', {order:'nom'}), dbGet('presences', {})]);
@@ -810,21 +833,24 @@ async function initSalaires() {
 }
 
 
-var POSTES = ['Gerant','Barman','DJ','Serveuse','Agent de securite','Autre'];
+// Postes charges depuis Supabase via chargerPostes()
 
-function ouvrirModifEmploye(empId) {
+async function ouvrirModifEmploye(empId) {
   var emp = (window._employes_data||[]).find(function(e){return e.id===empId;});
   if (!emp) return;
-  // Remplir le formulaire de modification
+  // Recharger les postes depuis Supabase
+  await chargerPostes();
+  // Remplir le formulaire
   document.getElementById('mod-id').value = emp.id;
   document.getElementById('mod-nom').value = emp.nom;
-  document.getElementById('mod-poste').value = emp.poste;
+  // Sélectionner le bon poste
+  var selPoste = document.getElementById('mod-poste');
+  if (selPoste) selPoste.value = emp.poste;
   document.getElementById('mod-salaire').value = emp.salaire;
   document.getElementById('mod-bonus').value = emp.bonus_pct || 0;
   document.getElementById('mod-tel').value = emp.telephone || '';
   // Afficher le panneau
   document.getElementById('modif-panel').style.display = 'block';
-  // Scroller vers le formulaire
   document.getElementById('modif-panel').scrollIntoView({behavior:'smooth'});
 }
 
@@ -972,6 +998,48 @@ async function exportPDF() {
   win.document.close();
 }
 
+
+// ============================================
+// GESTION DES POSTES
+// ============================================
+async function loadPostes() {
+  var loading = document.getElementById('postes-loading');
+  if (loading) loading.style.display = 'flex';
+  var r = await db.from('postes').select('*').order('nom');
+  if (loading) loading.style.display = 'none';
+  var postes = r.data || [];
+  var tbody = document.getElementById('postes-body');
+  if (!tbody) return;
+  tbody.innerHTML = postes.map(function(p) {
+    return '<tr>'
+      +'<td style="font-weight:500">'+p.nom+'</td>'
+      +'<td><button class="btn btn-danger" style="padding:2px 8px;font-size:10px" '
+        +'data-id="'+p.id+'" data-nom="'+p.nom+'" onclick="supprimerPoste(this.dataset.id, this.dataset.nom)">Supprimer</button></td>'
+      +'</tr>';
+  }).join('') || '<tr><td colspan="2" class="empty">Aucun poste</td></tr>';
+}
+
+async function ajouterPoste() {
+  var nom = document.getElementById('new-poste-nom').value.trim();
+  if (!nom) { showToast('Entrez un nom de poste', 'error'); return; }
+  var r = await db.from('postes').insert({ nom: nom });
+  if (r.error) { showToast('Erreur: '+r.error.message, 'error'); return; }
+  document.getElementById('new-poste-nom').value = '';
+  showToast('Poste "'+nom+'" ajoute !');
+  await chargerPostes();
+  loadPostes();
+}
+
+async function supprimerPoste(id, nom) {
+  if (!confirm('Supprimer le poste "'+nom+'" ?')) return;
+  var r = await db.from('postes').delete().eq('id', id);
+  if (r.error) { showToast('Erreur: '+r.error.message, 'error'); return; }
+  showToast('Poste supprime');
+  await chargerPostes();
+  loadPostes();
+}
+
+
 function go(id, el) {
   document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active');});
   document.querySelectorAll('.nav-item').forEach(function(n){n.classList.remove('active');});
@@ -984,7 +1052,7 @@ function go(id, el) {
   else if(id==='stocks') initStocks();
   else if(id==='depenses') loadDepenses();
   else if(id==='achats') initAchats();
-  else if(id==='employes') loadEmployes();
+  else if(id==='employes') { chargerPostes(); loadEmployes(); }
   else if(id==='presences') initPresences();
   else if(id==='salaires') initSalaires();
   else if(id==='analyse') initAnalyse();
@@ -1000,6 +1068,7 @@ function swTab(el, tabId) {
   var target = document.getElementById(tabId);
   if(target) target.style.display='';
   if(tabId==='vt-hist') loadHistVentes();
+  if(tabId==='emp-postes') loadPostes();
 }
 
 checkConnection();
