@@ -452,7 +452,6 @@
       <div class="tabs">
         <div class="tab active" onclick="swTab(this,'emp-list')">Fiches</div>
         <div class="tab" onclick="swTab(this,'emp-add')">Ajouter</div>
-        <div class="tab" onclick="swTab(this,'emp-postes')">Postes</div>
       </div>
       <div id="emp-list">
         <div class="loading" id="emp-loading"><div class="spinner"></div>Chargement...</div>
@@ -512,28 +511,22 @@
           </div>
           <button class="btn btn-accent" onclick="addEmploye()">Enregistrer</button>
         </div>
-      </div>
 
-      <!-- GESTION DES POSTES -->
-      <div id="emp-postes" style="display:none">
-        <div class="card" style="margin-bottom:12px">
-          <div class="card-title">Ajouter un nouveau poste</div>
-          <div class="frow f2">
+        <!-- Gestion des postes intégrée -->
+        <div style="margin-top:16px;padding-top:14px;border-top:0.5px solid var(--border)">
+          <div class="card-title" style="margin-bottom:10px">Gerer les postes</div>
+          <div class="frow f2" style="margin-bottom:10px">
             <div class="fg">
-              <label>Nom du poste</label>
+              <label>Nouveau poste</label>
               <input type="text" id="new-poste-nom" placeholder="Ex: Caissier, Vigile...">
             </div>
             <div class="fg" style="justify-content:flex-end;padding-top:18px">
               <button class="btn btn-accent" onclick="ajouterPoste()">Ajouter</button>
             </div>
           </div>
-        </div>
-        <div class="card">
-          <div class="card-title">Liste des postes</div>
-          <div class="loading" id="postes-loading" style="display:none"><div class="spinner"></div>Chargement...</div>
           <div class="table-wrap">
             <table>
-              <thead><tr><th>Poste</th><th></th></tr></thead>
+              <thead><tr><th>Postes existants</th><th></th></tr></thead>
               <tbody id="postes-body"></tbody>
             </table>
           </div>
