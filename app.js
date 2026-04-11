@@ -1085,6 +1085,9 @@ function renderEmpListeGlobale(employes, primes, avances, presences) {
     var dateEmb = e.date_embauche ? formatDateDisplay(e.date_embauche) : '—';
     var net = e.salaire + pr - av;
 
+    var updatedAt = e.updated_at
+      ? formatDateDisplay(e.updated_at.split('T')[0]) + ' ' + e.updated_at.split('T')[1].substring(0,5)
+      : '—';
     return '<tr onclick="ouvrirModifEmploye(this.dataset.id)" data-id="'+e.id+'" style="cursor:pointer">'
       +'<td>'
         +'<div style="display:flex;align-items:center;gap:8px">'
@@ -1097,6 +1100,7 @@ function renderEmpListeGlobale(employes, primes, avances, presences) {
       +'<td style="font-family:var(--mono)">'+fmt(e.salaire)+' GNF</td>'
       +'<td style="font-family:var(--mono);text-align:center">'+(e.bonus_pct>0?e.bonus_pct+'%':'—')+'</td>'
       +'<td style="font-family:var(--mono)">'+(e.telephone||'—')+'</td>'
+      +'<td style="font-family:var(--mono);font-size:10px;color:var(--text3)">'+updatedAt+'</td>'
       +'</tr>';
   }).join('') || '<tr><td colspan="6" class="empty">Aucun employe</td></tr>';
 }
