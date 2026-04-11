@@ -805,6 +805,53 @@ async function initSalaires() {
   }).join('');
 }
 
+
+var POSTES = ['Gerant','Barman','DJ','Serveuse','Agent de securite','Autre'];
+
+function ouvrirModifEmploye(empId) {
+  var emp = (window._employes_data||[]).find(function(e){return e.id===empId;});
+  if (!emp) return;
+  // Remplir le formulaire de modification
+  document.getElementById('mod-id').value = emp.id;
+  document.getElementById('mod-nom').value = emp.nom;
+  document.getElementById('mod-poste').value = emp.poste;
+  document.getElementById('mod-salaire').value = emp.salaire;
+  document.getElementById('mod-bonus').value = emp.bonus_pct || 0;
+  document.getElementById('mod-tel').value = emp.telephone || '';
+  // Afficher le panneau
+  document.getElementById('modif-panel').style.display = 'block';
+  // Scroller vers le formulaire
+  document.getElementById('modif-panel').scrollIntoView({behavior:'smooth'});
+}
+
+async function sauvegarderModifEmploye() {
+  var id = document.getElementById('mod-id').value;
+  var nom = document.getElementById('mod-nom').value.trim();
+  var poste = document.getElementById('mod-poste').value;
+  var salaire = parseInt(document.getElementById('mod-salaire').value)||0;
+  var bonus_pct = parseFloat(document.getElementById('mod-bonus').value)||0;
+  var telephone = document.getElementById('mod-tel').value.trim();
+  if (!nom || !salaire) { showToast('Nom et salaire obligatoires', 'error'); return; }
+  var r = await db.from('employes').update({nom:nom, poste:poste, salaire:salaire, bonus_pct:bonus_pct, telephone:telephone}).eq('id', id);
+  if (r.error) { showToast('Erreur: '+r.error.message, 'error'); return; }
+  invalidateCache('employes');
+  document.getElementById('modif-panel').style.display = 'none';
+  showToast('Employe mis a jour !');
+  loadEmployes();
+}
+
+async function supprimerEmploye() {
+  var id = document.getElementById('mod-id').value;
+  var nom = document.getElementById('mod-nom').value;
+  if (!confirm('Supprimer '+nom+' ? Cette action est irreversible.')) return;
+  var r = await db.from('employes').delete().eq('id', id);
+  if (r.error) { showToast('Erreur: '+r.error.message, 'error'); return; }
+  invalidateCache('employes');
+  document.getElementById('modif-panel').style.display = 'none';
+  showToast('Employe supprime');
+  loadEmployes();
+}
+
 async function openAddPrime() {
   var r = await db.from('employes').select('id,nom').order('nom');
   var employes = r.data || [];
