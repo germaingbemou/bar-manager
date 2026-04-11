@@ -659,12 +659,31 @@ function applyVhCustomFilter() {
 
 async function loadHistVentes() {
   document.getElementById('hist-loading').style.display = 'flex';
-  var r = await db.from('ventes').select('*').order('date', {ascending: false}).limit(100);
+  // Charger toutes les ventes depuis le cache
+  var toutesVentes = await dbGet('ventes', {});
   document.getElementById('hist-loading').style.display = 'none';
-  var data = r.data || [];
-  document.getElementById('vh-body').innerHTML = data.map(function(v) {
-    return '<tr><td>'+v.date+'</td><td>'+v.produit_nom+'</td><td>'+v.quantite_vendue+'</td><td>'+fmt(v.prix_vente)+'</td><td>'+fmt((v.quantite_vendue||0)*(v.prix_vente||0))+'</td><td>'+(v.gerant||'—')+'</td></tr>';
-  }).join('') || '<tr><td colspan="6" class="empty">Aucune vente</td></tr>';
+
+  // Appliquer le filtre de période
+  var ventes = toutesVentes.slice();
+  if (vhDebut) ventes = ventes.filter(function(v){ return v.date >= vhDebut; });
+  if (vhFin) ventes = ventes.filter(function(v){ return v.date <= vhFin; });
+
+  // Trier par date décroissante
+  ventes.sort(function(a,b){ return b.date > a.date ? 1 : -1; });
+
+  // Afficher
+  document.getElementById('vh-body').innerHTML = ventes.map(function(v) {
+    var dateAff = v.date ? formatDateDisplay(v.date) : '—';
+    var revenu = (v.quantite_vendue||0) * (v.prix_vente||0);
+    return '<tr>'
+      +'<td style="font-family:var(--mono)">'+dateAff+'</td>'
+      +'<td>'+v.produit_nom+'</td>'
+      +'<td style="font-family:var(--mono)">'+v.quantite_vendue+'</td>'
+      +'<td style="font-family:var(--mono)">'+fmt(v.prix_vente)+' GNF</td>'
+      +'<td style="font-family:var(--mono);font-weight:500;color:var(--accent)">'+fmt(revenu)+' GNF</td>'
+      +'<td>'+(v.gerant||'—')+'</td>'
+      +'</tr>';
+  }).join('') || '<tr><td colspan="6" class="empty">Aucune vente pour cette periode</td></tr>';
 }
 
 async function initStocks() {
@@ -1331,6 +1350,9 @@ function go(id, el) {
   else if(id==='analyse') initAnalyse();
   else if(id==='admin') loadAdminUsers();
   else if(id==='primes-gerant') initPrimesGerant();
+  // Masquer barre filtre topbar sur Ventes
+  var ta = document.getElementById('topbar-actions');
+  if (ta) ta.style.display = (id === 'ventes') ? 'none' : 'flex';
 }
 
 function swTab(el, tabId) {
