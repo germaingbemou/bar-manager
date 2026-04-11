@@ -316,9 +316,9 @@
           <button class="btn active" id="btn-all" onclick="setQuickFilter('all')" style="font-size:10px;padding:4px 8px">Tout</button>
         </div>
         <div style="display:flex;align-items:center;gap:4px">
-          <input type="date" id="flt-debut" style="background:var(--bg3);border:1px solid var(--border2);color:var(--text2);font-size:11px;padding:4px 7px;border-radius:8px;font-family:var(--font)" onchange="applyCustomFilter()">
+          <input type="date" lang="fr-CA" id="flt-debut" style="background:var(--bg3);border:1px solid var(--border2);color:var(--text2);font-size:11px;padding:4px 7px;border-radius:8px;font-family:var(--font)" onchange="applyCustomFilter()">
           <span style="color:var(--text3);font-size:11px">→</span>
-          <input type="date" id="flt-fin" style="background:var(--bg3);border:1px solid var(--border2);color:var(--text2);font-size:11px;padding:4px 7px;border-radius:8px;font-family:var(--font)" onchange="applyCustomFilter()">
+          <input type="date" lang="fr-CA" id="flt-fin" style="background:var(--bg3);border:1px solid var(--border2);color:var(--text2);font-size:11px;padding:4px 7px;border-radius:8px;font-family:var(--font)" onchange="applyCustomFilter()">
         </div>
       </div>
       <button class="btn btn-accent" onclick="exportCSV()">CSV</button>
@@ -332,8 +332,8 @@
       <button class="btn" onclick="setQuickFilter('month')" style="font-size:10px;padding:3px 7px">Mois</button>
       <button class="btn" onclick="setQuickFilter('all')" style="font-size:10px;padding:3px 7px">Tout</button>
     </div>
-    <input type="date" id="flt-debut-mob" style="background:var(--bg3);border:1px solid var(--border2);color:var(--text2);font-size:11px;padding:3px 7px;border-radius:8px;flex-shrink:0" onchange="applyCustomFilterMob()">
-    <input type="date" id="flt-fin-mob" style="background:var(--bg3);border:1px solid var(--border2);color:var(--text2);font-size:11px;padding:3px 7px;border-radius:8px;flex-shrink:0" onchange="applyCustomFilterMob()">
+    <input type="date" lang="fr-CA" id="flt-debut-mob" style="background:var(--bg3);border:1px solid var(--border2);color:var(--text2);font-size:11px;padding:3px 7px;border-radius:8px;flex-shrink:0" onchange="applyCustomFilterMob()">
+    <input type="date" lang="fr-CA" id="flt-fin-mob" style="background:var(--bg3);border:1px solid var(--border2);color:var(--text2);font-size:11px;padding:3px 7px;border-radius:8px;flex-shrink:0" onchange="applyCustomFilterMob()">
     <button class="btn btn-accent" onclick="exportCSV()" style="flex-shrink:0;font-size:10px;padding:4px 9px">CSV</button>
     <button class="btn" onclick="exportPDF()" style="flex-shrink:0;font-size:10px;padding:4px 9px">PDF</button>
   </div>
@@ -367,7 +367,7 @@
         <div class="card">
           <div class="card-title">Saisie des ventes</div>
           <div class="frow f2">
-            <div class="fg"><label>Date</label><input type="date" id="v-date" value="2025-06-01"></div>
+            <div class="fg"><label>Date</label><input type="date" lang="fr-CA" id="v-date"></div>
             <div class="fg"><label>Gerant du jour</label><select id="v-gerant"><option>HONORE</option><option>BERNARD</option></select></div>
           </div>
         </div>
@@ -410,7 +410,7 @@
         <div class="card">
           <div class="card-title">Nouvelle depense</div>
           <div class="frow f2">
-            <div class="fg"><label>Date</label><input type="date" id="d-date" value="2025-06-01"></div>
+            <div class="fg"><label>Date</label><input type="date" lang="fr-CA" id="d-date"></div>
             <div class="fg"><label>Designation</label><input type="text" id="d-nom" placeholder="Ex: Nettoyage"></div>
           </div>
           <div class="frow f2">
@@ -433,7 +433,7 @@
       <div class="card">
         <div class="card-title">Nouvel achat</div>
         <div class="frow f4">
-          <div class="fg"><label>Date</label><input type="date" id="a-date" value="2025-06-01"></div>
+          <div class="fg"><label>Date</label><input type="date" lang="fr-CA" id="a-date"></div>
           <div class="fg"><label>Produit</label><select id="a-prod"></select></div>
           <div class="fg"><label>Quantite</label><input type="number" id="a-qte" step="0.5" placeholder="0"></div>
           <div class="fg"><label>Prix unitaire</label><input type="number" id="a-prix" placeholder="0"></div>
@@ -477,7 +477,7 @@
 <option>Autre</option>
               </select>
             </div>
-            <div class="fg"><label>Date embauche</label><input type="date" id="mod-date"></div>
+            <div class="fg"><label>Date embauche</label><input type="date" lang="fr-CA" id="mod-date"></div>
           </div>
           <div class="frow f3">
             <div class="fg"><label>Salaire (GNF)</label><input type="number" id="mod-salaire" placeholder="0"></div>
@@ -502,7 +502,7 @@
 <option>Serveuse</option>
 <option>Agent de securite</option>
 <option>Autre</option></select></div>
-            <div class="fg"><label>Date embauche</label><input type="date" id="e-date" value="2025-06-01"></div>
+            <div class="fg"><label>Date embauche</label><input type="date" lang="fr-CA" id="e-date"></div>
           </div>
           <div class="frow f3">
             <div class="fg"><label>Salaire (GNF)</label><input type="number" id="e-salaire" placeholder="0"></div>

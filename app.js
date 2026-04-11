@@ -275,7 +275,7 @@ function showToast(msg, type) {
 }
 
 async function checkConnection() {
-  await initAuth(); await Promise.all([preloadData(), chargerPostes()]);
+  await initAuth(); await Promise.all([preloadData(), chargerPostes()]); setDefaultDates();
   try {
     const { data, error } = await db.from('produits').select('count').limit(1);
     if (error) throw error;
@@ -706,6 +706,32 @@ async function addEmploye() {
 }
 
 
+
+// ============================================
+// UTILITAIRES DATE
+// ============================================
+function todayISO() {
+  return new Date().toISOString().split('T')[0]; // YYYY-MM-DD pour les inputs
+}
+
+function formatDateDisplay(isoDate) {
+  if (!isoDate) return '';
+  var parts = isoDate.split('-');
+  if (parts.length !== 3) return isoDate;
+  return parts[2] + '/' + parts[1] + '/' + parts[0]; // DD/MM/YYYY
+}
+
+function setDefaultDates() {
+  var today = todayISO();
+  var inputs = ['v-date', 'd-date', 'a-date', 'e-date', 'pr-date', 'mod-date'];
+  inputs.forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el && !el.value) {
+      el.value = today;
+    }
+  });
+}
+
 // ============================================
 // POSTES — chargés dynamiquement depuis Supabase
 // ============================================
@@ -846,6 +872,9 @@ async function ouvrirModifEmploye(empId) {
   // Sélectionner le bon poste
   var selPoste = document.getElementById('mod-poste');
   if (selPoste) selPoste.value = emp.poste;
+  // Date d'embauche
+  var modDate = document.getElementById('mod-date');
+  if (modDate && emp.date_embauche) modDate.value = emp.date_embauche;
   document.getElementById('mod-salaire').value = emp.salaire;
   document.getElementById('mod-bonus').value = emp.bonus_pct || 0;
   document.getElementById('mod-tel').value = emp.telephone || '';
@@ -1047,12 +1076,12 @@ function go(id, el) {
   if(el) el.classList.add('active');
   var titles = { dashboard:'Tableau de bord', ventes:'Ventes', stocks:'Stocks', depenses:'Depenses', achats:'Achats', employes:'Employes', presences:'Presences', salaires:'Salaires', analyse:'Rapports & Analyses' };
   document.getElementById('pg-title').textContent = titles[id]||id;
-  if(id==='dashboard') initDashboard();
+  if(id==='dashboard') { initDashboard(); setDefaultDates(); }
   else if(id==='ventes') initVentes();
   else if(id==='stocks') initStocks();
   else if(id==='depenses') loadDepenses();
   else if(id==='achats') initAchats();
-  else if(id==='employes') { chargerPostes(); loadEmployes(); }
+  else if(id==='employes') { chargerPostes(); loadEmployes(); setDefaultDates(); }
   else if(id==='presences') initPresences();
   else if(id==='salaires') initSalaires();
   else if(id==='analyse') initAnalyse();
