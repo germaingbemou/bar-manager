@@ -895,8 +895,37 @@ async function sauvegarderModifEmploye() {
   var telephone = document.getElementById('mod-tel').value.trim();
   if (!nom || !salaire) { showToast('Nom et salaire obligatoires', 'error'); return; }
   var observation = document.getElementById('mod-observation') ? document.getElementById('mod-observation').value.trim() : '';
+  // Récupérer l'ancien employé pour comparer
+  var empAvant = (window._employes_data||[]).find(function(e){return e.id===id;});
   var r = await db.from('employes').update({nom:nom, poste:poste, salaire:salaire, bonus_pct:bonus_pct, telephone:telephone, observation:observation}).eq('id', id);
   if (r.error) { showToast('Erreur: '+r.error.message, 'error'); return; }
+  // Enregistrer l'historique des changements
+  if (empAvant) {
+    var lignesHistorique = [];
+    var champs = [
+      {champ:'Nom', avant:empAvant.nom, apres:nom},
+      {champ:'Poste', avant:empAvant.poste, apres:poste},
+      {champ:'Salaire', avant:String(empAvant.salaire), apres:String(salaire)},
+      {champ:'Bonus %', avant:String(empAvant.bonus_pct||0), apres:String(bonus_pct)},
+      {champ:'Telephone', avant:empAvant.telephone||'', apres:telephone},
+    ];
+    champs.forEach(function(c) {
+      if (c.avant !== c.apres) {
+        lignesHistorique.push({
+          employe_id: id,
+          employe_nom: nom,
+          champ_modifie: c.champ,
+          ancienne_valeur: c.avant || '—',
+          nouvelle_valeur: c.apres || '—',
+          observation: observation || '—',
+          modifie_par: currentUser ? currentUser.email : 'inconnu'
+        });
+      }
+    });
+    if (lignesHistorique.length > 0) {
+      await db.from('employes_historique').insert(lignesHistorique);
+    }
+  }
   invalidateCache('employes');
   document.getElementById('modif-panel').style.display = 'none';
   showToast('Employe mis a jour !');
@@ -1074,6 +1103,34 @@ async function supprimerPoste(id, nom) {
 
 
 
+
+// ============================================
+// HISTORIQUE DES MODIFICATIONS EMPLOYÉS
+// ============================================
+async function loadHistoriqueEmployes() {
+  var r = await db.from('employes_historique')
+    .select('*')
+    .order('modifie_le', {ascending: false})
+    .limit(100);
+  var data = r.data || [];
+  var tbody = document.getElementById('historique-body');
+  if (!tbody) return;
+  tbody.innerHTML = data.map(function(h) {
+    var date = h.modifie_le
+      ? formatDateDisplay(h.modifie_le.split('T')[0]) + ' ' + h.modifie_le.split('T')[1].substring(0,5)
+      : '—';
+    return '<tr>'
+      +'<td style="font-family:var(--mono);font-size:10px">'+date+'</td>'
+      +'<td style="font-weight:500;color:var(--text)">'+h.employe_nom+'</td>'
+      +'<td><span class="badge badge-blue">'+h.champ_modifie+'</span></td>'
+      +'<td style="font-family:var(--mono);color:var(--danger)">'+h.ancienne_valeur+'</td>'
+      +'<td style="font-family:var(--mono);color:var(--accent)">'+h.nouvelle_valeur+'</td>'
+      +'<td style="font-size:10px;color:var(--text3)">'+h.observation+'</td>'
+      +'<td style="font-size:10px;color:var(--text3)">'+h.modifie_par+'</td>'
+      +'</tr>';
+  }).join('') || '<tr><td colspan="7" class="empty">Aucune modification enregistree</td></tr>';
+}
+
 function renderEmpListeGlobale(employes, primes, avances, presences) {
   var tbody = document.getElementById('emp-liste-body');
   if (!tbody) return;
@@ -1147,6 +1204,7 @@ function swTab(el, tabId) {
   if(target) target.style.display='';
   if(tabId==='vt-hist') loadHistVentes();
   if(tabId==='emp-add') loadPostes();
+  if(tabId==='emp-historique') loadHistoriqueEmployes();
 }
 
 checkConnection();
