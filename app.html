@@ -452,7 +452,6 @@
       <div class="tabs">
         <div class="tab active" onclick="swTab(this,'emp-list')">Fiches</div>
         <div class="tab" onclick="swTab(this,'emp-add')">Ajouter</div>
-        <div class="tab" onclick="swTab(this,'emp-historique')">Historique</div>
       </div>
       <div id="emp-list">
         <div class="loading" id="emp-loading"><div class="spinner"></div>Chargement...</div>
@@ -480,6 +479,23 @@
           </div>
         </div>
       </div>
+
+        <!-- HISTORIQUE DES MODIFICATIONS -->
+        <div class="card" style="margin-top:12px">
+          <div class="card-title">Historique des modifications
+            <button class="btn" style="font-size:10px;padding:3px 8px" onclick="loadHistoriqueEmployes()">Actualiser</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr>
+                <th>Date</th><th>Employe</th><th>Champ</th>
+                <th>Ancienne valeur</th><th>Nouvelle valeur</th>
+                <th>Observation</th><th>Modifie par</th>
+              </tr></thead>
+              <tbody id="historique-body"></tbody>
+            </table>
+          </div>
+        </div>
       </div><!-- fin emp-list -->
 
       <!-- MODIFICATION EMPLOYÉ -->
@@ -564,25 +580,6 @@
       </div>
 
     </div>
-
-      <!-- HISTORIQUE DES MODIFICATIONS -->
-      <div id="emp-historique" style="display:none">
-        <div class="card">
-          <div class="card-title">Historique des modifications
-            <button class="btn" style="font-size:10px;padding:3px 8px" onclick="loadHistoriqueEmployes()">Actualiser</button>
-          </div>
-          <div class="table-wrap">
-            <table>
-              <thead><tr>
-                <th>Date</th><th>Employe</th><th>Champ</th>
-                <th>Ancienne valeur</th><th>Nouvelle valeur</th>
-                <th>Observation</th><th>Modifie par</th>
-              </tr></thead>
-              <tbody id="historique-body"></tbody>
-            </table>
-          </div>
-        </div>
-      </div>
 
     <div class="page" id="page-presences">
       <div class="card" style="margin-bottom:12px">
