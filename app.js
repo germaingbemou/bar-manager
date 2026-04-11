@@ -1068,7 +1068,7 @@ function swTab(el, tabId) {
   var target = document.getElementById(tabId);
   if(target) target.style.display='';
   if(tabId==='vt-hist') loadHistVentes();
-  if(tabId==='emp-postes') loadPostes();
+  if(tabId==='emp-add') loadPostes();
 }
 
 checkConnection();
