@@ -18,15 +18,25 @@ async function dbGet(table, query) {
   if (_cache[key] && (now - _cache[key].ts) < CACHE_TTL) {
     return _cache[key].data;
   }
-  let q = db.from(table).select('*');
-  if (query && query.order) q = q.order(query.order, {ascending: query.asc !== false});
-  if (query && query.limit) q = q.limit(query.limit);
-  if (query && query.eq) q = q.eq(query.eq[0], query.eq[1]);
-  const { data, error } = await q;
-  if (!error && data) {
-    _cache[key] = { data: data, ts: now };
+  // Charger toutes les données en paginant par blocs de 1000
+  // pour dépasser la limite par défaut de Supabase
+  var allData = [];
+  var from = 0;
+  var pageSize = 1000;
+  while (true) {
+    let q = db.from(table).select('*').range(from, from + pageSize - 1);
+    if (query && query.order) q = q.order(query.order, {ascending: query.asc !== false});
+    if (query && query.eq) q = q.eq(query.eq[0], query.eq[1]);
+    const { data, error } = await q;
+    if (error || !data || data.length === 0) break;
+    allData = allData.concat(data);
+    if (data.length < pageSize) break; // dernière page
+    from += pageSize;
   }
-  return data || [];
+  if (allData.length > 0) {
+    _cache[key] = { data: allData, ts: now };
+  }
+  return allData;
 }
 
 function invalidateCache(table) {
