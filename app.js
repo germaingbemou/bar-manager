@@ -1532,7 +1532,7 @@ function go(id, el) {
   else if(id==='primes-gerant') initPrimesGerant();
   // Masquer barre filtre topbar sur Ventes
   var ta = document.getElementById('topbar-actions');
-  if (ta) ta.style.display = (id === 'ventes') ? 'none' : 'flex';
+  if (ta) ta.style.display = (id === 'ventes' || id === 'stocks') ? 'none' : 'flex';
 }
 
 function swTab(el, tabId) {
