@@ -408,18 +408,69 @@
       </div>
     </div>
     <div class="page" id="page-stocks">
-      <div class="mgrid g2" style="margin-bottom:12px">
-        <div class="card"><div class="card-title">Niveaux de stock</div><div class="chart-wrap" style="height:200px"><canvas id="c-stock"></canvas></div></div>
-        <div class="card"><div class="card-title">Statut global</div><div class="chart-wrap" style="height:200px"><canvas id="c-stock-pie"></canvas></div></div>
+      <div class="tabs">
+        <div class="tab active" onclick="swTab(this,'st-actuel')">Stock actuel</div>
+        <div class="tab" onclick="swTab(this,'st-periode')">Par periode</div>
       </div>
-      <div class="card"><div class="card-title">Etat complet <span id="stock-alert-txt"></span></div>
-        <div class="loading" id="stock-loading"><div class="spinner"></div>Chargement...</div>
-        <div class="table-wrap"><table>
-          <thead><tr><th>Produit</th><th>Stock</th><th>Niveau</th><th>Prix vente</th><th>Prix achat</th><th>Statut</th><th>Seuil alerte</th></tr></thead>
-          <tbody id="s-body"></tbody>
-        </table></div>
+
+      <!-- ONGLET STOCK ACTUEL -->
+      <div id="st-actuel">
+        <div class="mgrid g2" style="margin-bottom:12px">
+          <div class="card"><div class="card-title">Niveaux de stock</div><div class="chart-wrap" style="height:200px"><canvas id="c-stock"></canvas></div></div>
+          <div class="card"><div class="card-title">Statut global</div><div class="chart-wrap" style="height:200px"><canvas id="c-stock-pie"></canvas></div></div>
+        </div>
+        <div class="card"><div class="card-title">Etat complet <span id="stock-alert-txt"></span></div>
+          <div class="loading" id="stock-loading"><div class="spinner"></div>Chargement...</div>
+          <div class="table-wrap"><table>
+            <thead><tr><th>Produit</th><th>Stock</th><th>Niveau</th><th>Prix vente</th><th>Prix achat</th><th>Statut</th><th>Seuil alerte</th></tr></thead>
+            <tbody id="s-body"></tbody>
+          </table></div>
+        </div>
       </div>
+
+      <!-- ONGLET PAR PÉRIODE -->
+      <div id="st-periode" style="display:none">
+        <div class="card" style="margin-bottom:12px">
+          <div class="card-title">Mouvements de stock par periode</div>
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--border)">
+            <div style="display:flex;gap:4px">
+              <button class="btn active" id="sp-btn-today" onclick="setSpFilter('today')" style="font-size:10px;padding:4px 9px">Aujourd'hui</button>
+              <button class="btn" id="sp-btn-week" onclick="setSpFilter('week')" style="font-size:10px;padding:4px 9px">Semaine</button>
+              <button class="btn" id="sp-btn-month" onclick="setSpFilter('month')" style="font-size:10px;padding:4px 9px">Mois</button>
+              <button class="btn" id="sp-btn-all" onclick="setSpFilter('all')" style="font-size:10px;padding:4px 9px">Tout</button>
+            </div>
+            <div style="display:flex;align-items:center;gap:4px">
+              <input type="date" lang="fr-CA" id="sp-debut" style="background:var(--bg3);border:1px solid var(--border2);color:var(--text2);font-size:11px;padding:4px 7px;border-radius:8px" onchange="applySpCustomFilter()">
+              <span style="color:var(--text3);font-size:11px">→</span>
+              <input type="date" lang="fr-CA" id="sp-fin" style="background:var(--bg3);border:1px solid var(--border2);color:var(--text2);font-size:11px;padding:4px 7px;border-radius:8px" onchange="applySpCustomFilter()">
+            </div>
+          </div>
+          <div class="loading" id="sp-loading" style="display:none"><div class="spinner"></div>Chargement...</div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr>
+                <th>Produit</th>
+                <th>Prix vente</th>
+                <th>Qte vendue</th>
+                <th>Revenu ventes</th>
+                <th>Qte achetee</th>
+                <th>Cout achats</th>
+                <th>Variation nette</th>
+                <th>Marge brute</th>
+              </tr></thead>
+              <tbody id="sp-body"></tbody>
+            </table>
+          </div>
+          <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border)" id="sp-totaux"></div>
+        </div>
+        <div class="mgrid g2">
+          <div class="card"><div class="card-title">Top produits vendus</div><div class="chart-wrap" style="height:200px"><canvas id="c-sp-ventes"></canvas></div></div>
+          <div class="card"><div class="card-title">Revenu vs Cout</div><div class="chart-wrap" style="height:200px"><canvas id="c-sp-marge"></canvas></div></div>
+        </div>
+      </div>
+
     </div>
+
     <div class="page" id="page-depenses">
       <div class="mgrid g2">
         <div class="card">

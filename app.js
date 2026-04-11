@@ -1355,6 +1355,163 @@ function renderEmpListeGlobale(employes, primes, avances, presences) {
   }).join('') || '<tr><td colspan="6" class="empty">Aucun employe</td></tr>';
 }
 
+
+// ============================================
+// STOCKS PAR PÉRIODE
+// ============================================
+var spDebut = null;
+var spFin = null;
+
+function setSpFilter(type) {
+  ['sp-btn-today','sp-btn-week','sp-btn-month','sp-btn-all'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.classList.remove('active');
+  });
+  var btn = document.getElementById('sp-btn-'+type);
+  if (btn) btn.classList.add('active');
+
+  var today = todayISO();
+  if (type === 'today') {
+    spDebut = today; spFin = today;
+  } else if (type === 'week') {
+    var b = getWeekBounds(); spDebut = b.debut; spFin = b.fin;
+  } else if (type === 'month') {
+    var b = getMonthBounds(); spDebut = b.debut; spFin = b.fin;
+  } else {
+    spDebut = null; spFin = null;
+  }
+  var deb = document.getElementById('sp-debut');
+  var fin = document.getElementById('sp-fin');
+  if (deb) deb.value = spDebut || '';
+  if (fin) fin.value = spFin || '';
+  loadStockPeriode();
+}
+
+function applySpCustomFilter() {
+  var deb = document.getElementById('sp-debut');
+  var fin = document.getElementById('sp-fin');
+  spDebut = deb ? deb.value || null : null;
+  spFin = fin ? fin.value || null : null;
+  ['sp-btn-today','sp-btn-week','sp-btn-month','sp-btn-all'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.classList.remove('active');
+  });
+  loadStockPeriode();
+}
+
+async function loadStockPeriode() {
+  var loading = document.getElementById('sp-loading');
+  if (loading) loading.style.display = 'flex';
+
+  var [toutesVentes, tousAchats, produits] = await Promise.all([
+    dbGet('ventes', {}),
+    dbGet('achats', {}),
+    dbGet('produits', {order: 'nom'})
+  ]);
+
+  // Filtrer par période
+  var ventes = toutesVentes.filter(function(v) {
+    if (spDebut && v.date < spDebut) return false;
+    if (spFin && v.date > spFin) return false;
+    return true;
+  });
+  var achats = tousAchats.filter(function(a) {
+    if (spDebut && a.date < spDebut) return false;
+    if (spFin && a.date > spFin) return false;
+    return true;
+  });
+
+  if (loading) loading.style.display = 'none';
+
+  // Calculer par produit
+  var totalRevenu = 0, totalCout = 0, totalMarge = 0;
+
+  var rows = produits.map(function(p) {
+    // Ventes du produit sur la période
+    var ventesP = ventes.filter(function(v){ return v.produit_nom === p.nom; });
+    var qteVendue = ventesP.reduce(function(s,v){ return s+(v.quantite_vendue||0); }, 0);
+    var revenu = qteVendue * (p.prix_vente || 0);
+
+    // Achats du produit sur la période
+    var achatsP = achats.filter(function(a){ return a.produit_nom === p.nom; });
+    var qteAchetee = achatsP.reduce(function(s,a){ return s+(a.quantite||0); }, 0);
+    var coutAchat = achatsP.reduce(function(s,a){ return s+(a.quantite||0)*(a.prix_unitaire||0); }, 0);
+
+    // Variation nette = acheté - vendu
+    var variation = qteAchetee - qteVendue;
+    var marge = revenu - coutAchat;
+
+    totalRevenu += revenu;
+    totalCout += coutAchat;
+    totalMarge += marge;
+
+    if (qteVendue === 0 && qteAchetee === 0) return null; // ignorer produits sans mouvement
+
+    var varColor = variation >= 0 ? 'var(--accent)' : 'var(--danger)';
+    var varSign = variation >= 0 ? '+' : '';
+    var margeColor = marge >= 0 ? 'var(--accent)' : 'var(--danger)';
+
+    return '<tr>'
+      +'<td style="font-weight:500">'+p.nom+'</td>'
+      +'<td style="font-family:var(--mono)">'+fmt(p.prix_vente)+' GNF</td>'
+      +'<td style="font-family:var(--mono);text-align:center">'+qteVendue+'</td>'
+      +'<td style="font-family:var(--mono);color:var(--accent)">'+fmt(revenu)+' GNF</td>'
+      +'<td style="font-family:var(--mono);text-align:center">'+qteAchetee+'</td>'
+      +'<td style="font-family:var(--mono);color:var(--danger)">'+fmt(coutAchat)+' GNF</td>'
+      +'<td style="font-family:var(--mono);color:'+varColor+';font-weight:500">'+varSign+variation+'</td>'
+      +'<td style="font-family:var(--mono);color:'+margeColor+';font-weight:500">'+fmt(marge)+' GNF</td>'
+      +'</tr>';
+  }).filter(Boolean);
+
+  var tbody = document.getElementById('sp-body');
+  if (tbody) tbody.innerHTML = rows.join('') || '<tr><td colspan="8" class="empty">Aucun mouvement sur cette periode</td></tr>';
+
+  // Totaux
+  var totaux = document.getElementById('sp-totaux');
+  if (totaux) {
+    var margeColor = totalMarge >= 0 ? 'var(--accent)' : 'var(--danger)';
+    totaux.innerHTML = '<div style="display:flex;gap:16px;flex-wrap:wrap;font-size:11px;font-family:var(--mono)">'
+      +'<span>Total revenu : <strong style="color:var(--accent)">'+fmt(totalRevenu)+' GNF</strong></span>'
+      +'<span>Total cout achats : <strong style="color:var(--danger)">'+fmt(totalCout)+' GNF</strong></span>'
+      +'<span>Marge brute totale : <strong style="color:'+margeColor+'">'+fmt(totalMarge)+' GNF</strong></span>'
+      +'</div>';
+  }
+
+  // Graphiques
+  var top8 = produits
+    .map(function(p) {
+      var qv = ventes.filter(function(v){return v.produit_nom===p.nom;}).reduce(function(s,v){return s+(v.quantite_vendue||0);},0);
+      return {nom: p.nom, qv: qv, rev: qv*(p.prix_vente||0)};
+    })
+    .filter(function(p){return p.qv>0;})
+    .sort(function(a,b){return b.qv-a.qv;})
+    .slice(0,8);
+
+  mk('c-sp-ventes', {type:'bar', data:{
+    labels: top8.map(function(p){return p.nom.split(' ').slice(0,2).join(' ');}),
+    datasets:[{data:top8.map(function(p){return p.qv;}), backgroundColor:'rgba(110,231,183,0.6)', borderRadius:3, label:'Qte vendue'}]
+  }, options:{plugins:{legend:{display:false}}}});
+
+  var top8m = produits
+    .map(function(p) {
+      var qv = ventes.filter(function(v){return v.produit_nom===p.nom;}).reduce(function(s,v){return s+(v.quantite_vendue||0);},0);
+      var rev = qv*(p.prix_vente||0);
+      var cout = achats.filter(function(a){return a.produit_nom===p.nom;}).reduce(function(s,a){return s+(a.quantite||0)*(a.prix_unitaire||0);},0);
+      return {nom:p.nom, rev:rev, cout:cout};
+    })
+    .filter(function(p){return p.rev>0||p.cout>0;})
+    .sort(function(a,b){return b.rev-a.rev;})
+    .slice(0,8);
+
+  mk('c-sp-marge', {type:'bar', data:{
+    labels: top8m.map(function(p){return p.nom.split(' ').slice(0,2).join(' ');}),
+    datasets:[
+      {data:top8m.map(function(p){return p.rev;}), backgroundColor:'rgba(110,231,183,0.6)', label:'Revenu', borderRadius:3},
+      {data:top8m.map(function(p){return p.cout;}), backgroundColor:'rgba(248,113,113,0.6)', label:'Cout', borderRadius:3}
+    ]
+  }, options:{plugins:{legend:{display:true, position:'bottom', labels:{color:'#9090a8',font:{size:10}}}}}});
+}
+
 function go(id, el) {
   document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active');});
   document.querySelectorAll('.nav-item').forEach(function(n){n.classList.remove('active');});
@@ -1381,7 +1538,7 @@ function go(id, el) {
 function swTab(el, tabId) {
   el.closest('.tabs').querySelectorAll('.tab').forEach(function(t){t.classList.remove('active');});
   el.classList.add('active');
-  var all = ['vt-saisie','vt-hist','emp-list','emp-add','an-prod','an-rh'];
+  var all = ['vt-saisie','vt-hist','st-actuel','st-periode','emp-list','emp-add','an-prod','an-rh'];
   all.forEach(function(id){ var e=document.getElementById(id); if(e) e.style.display='none'; });
   var target = document.getElementById(tabId);
   if(target) target.style.display='';
@@ -1391,6 +1548,8 @@ function swTab(el, tabId) {
     else loadHistVentes();
   }
   if(tabId==='emp-add') loadPostes();
+  if(tabId==='st-periode') { if(!spDebut) setSpFilter('month'); else loadStockPeriode(); }
+  if(tabId==='st-actuel') initStocks();
 
 }
 
