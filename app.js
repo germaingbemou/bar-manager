@@ -1088,10 +1088,18 @@ function renderEmpListeGlobale(employes, primes, avances, presences) {
     var dateEmb = e.date_embauche ? formatDateDisplay(e.date_embauche) : '—';
     var net = e.salaire + pr - av;
 
-    // Afficher — si jamais modifié (updated_at null)
-    var updatedAt = e.updated_at
-      ? formatDateDisplay(e.updated_at.split('T')[0]) + ' ' + e.updated_at.split('T')[1].substring(0,5)
-      : '—';
+    // updated_at null = jamais modifié intentionnellement
+    var updatedAt = '—';
+    var updatedBadge = false;
+    if (e.updated_at) {
+      var d = new Date(e.updated_at);
+      var c = new Date(e.created_at || e.updated_at);
+      var diffSec = Math.abs(d - c) / 1000;
+      if (diffSec > 5) { // modifié plus de 5 secondes après la création
+        updatedAt = formatDateDisplay(e.updated_at.split('T')[0]) + ' ' + e.updated_at.split('T')[1].substring(0,5);
+        updatedBadge = true;
+      }
+    }
     return '<tr onclick="ouvrirModifEmploye(this.dataset.id)" data-id="'+e.id+'" style="cursor:pointer">'
       +'<td>'
         +'<div style="display:flex;align-items:center;gap:8px">'
@@ -1104,7 +1112,7 @@ function renderEmpListeGlobale(employes, primes, avances, presences) {
       +'<td style="font-family:var(--mono)">'+fmt(e.salaire)+' GNF</td>'
       +'<td style="font-family:var(--mono);text-align:center">'+(e.bonus_pct>0?e.bonus_pct+'%':'—')+'</td>'
       +'<td style="font-family:var(--mono)">'+(e.telephone||'—')+'</td>'
-      +'<td style="font-family:var(--mono);font-size:10px;color:'+(e.updated_at?'var(--accent)':'var(--text3)')+'">'+(e.updated_at?'<span class="badge badge-green">'+updatedAt+'</span>':'—')+'</td>'
+      +'<td style="font-size:10px">'+(updatedBadge?'<span class="badge badge-green">'+updatedAt+'</span>':'<span style="color:var(--text3)">—</span>')+'</td>'
       +'<td style="font-size:10px;color:var(--text3);max-width:150px;white-space:normal">'+(e.observation||'—')+'</td>'
       +'</tr>';
   }).join('') || '<tr><td colspan="6" class="empty">Aucun employe</td></tr>';
