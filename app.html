@@ -459,43 +459,66 @@
       <!-- LISTE GLOBALE EMPLOYÉS -->
       <div id="emp-liste-globale" style="margin-top:14px">
         <div class="card">
-          <div class="card-title">Liste globale des employés</div>
+          <div class="card-title">Liste globale des employes</div>
           <div class="table-wrap">
             <table>
-              <thead>
-                <tr>
-                  <th>Nom</th>
-                  <th>Poste</th>
-                  <th>Date embauche</th>
-                  <th>Salaire</th>
-                  <th>% Bonus CA</th>
-                  <th>Téléphone</th>
-                  <th>Dernière modification</th>
-                  <th>Observation</th>
-                </tr>
-              </thead>
+              <thead><tr>
+                <th>Nom</th><th>Poste</th><th>Date embauche</th>
+                <th>Salaire</th><th>% Bonus CA</th><th>Telephone</th>
+                <th>Derniere modification</th><th>Observation</th>
+              </tr></thead>
               <tbody id="emp-liste-body"></tbody>
             </table>
           </div>
         </div>
       </div>
 
-        <!-- HISTORIQUE DES MODIFICATIONS -->
-        <div class="card" style="margin-top:12px">
-          <div class="card-title">Historique des modifications
-            <button class="btn" style="font-size:10px;padding:3px 8px" onclick="loadHistoriqueEmployes()">Actualiser</button>
+      <!-- MODIFICATION EMPLOYÉ -->
+      <div id="modif-panel" style="display:none;margin-top:12px">
+        <div class="card">
+          <div class="card-title">Modifier un employe
+            <button class="btn" style="font-size:10px;padding:3px 8px" onclick="document.getElementById('modif-panel').style.display='none'">Fermer</button>
           </div>
-          <div class="table-wrap">
-            <table>
-              <thead><tr>
-                <th>Date</th><th>Employe</th><th>Champ</th>
-                <th>Ancienne valeur</th><th>Nouvelle valeur</th>
-                <th>Observation</th><th>Modifie par</th>
-              </tr></thead>
-              <tbody id="historique-body"></tbody>
-            </table>
+          <input type="hidden" id="mod-id">
+          <div class="frow f3">
+            <div class="fg"><label>Nom complet</label><input type="text" id="mod-nom" placeholder="Prenom Nom"></div>
+            <div class="fg"><label>Poste</label><select id="mod-poste"><option>Gerant</option><option>Barman</option><option>DJ</option><option>Serveuse</option><option>Agent de securite</option><option>Autre</option></select></div>
+            <div class="fg"><label>Date embauche</label><input type="date" lang="fr-CA" id="mod-date"></div>
+          </div>
+          <div class="frow f3">
+            <div class="fg"><label>Salaire (GNF)</label><input type="number" id="mod-salaire" placeholder="0"></div>
+            <div class="fg"><label>% bonus CA</label><input type="number" id="mod-bonus" placeholder="0" step="0.5"></div>
+            <div class="fg"><label>Telephone</label><input type="text" id="mod-tel" placeholder="+224..."></div>
+          </div>
+          <div class="frow" style="margin-bottom:8px">
+            <div class="fg">
+              <label>Observation (motif de la modification)</label>
+              <input type="text" id="mod-observation" placeholder="Ex: Augmentation salaire, Changement poste, Fin de contrat...">
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:4px">
+            <button class="btn btn-accent" onclick="sauvegarderModifEmploye()">Enregistrer les modifications</button>
+            <button class="btn btn-danger" onclick="supprimerEmploye()">Supprimer cet employe</button>
           </div>
         </div>
+      </div>
+
+      <!-- HISTORIQUE DES MODIFICATIONS -->
+      <div class="card" style="margin-top:12px">
+        <div class="card-title">Historique des modifications
+          <button class="btn" style="font-size:10px;padding:3px 8px" onclick="loadHistoriqueEmployes()">Actualiser</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr>
+              <th>Date</th><th>Employe</th><th>Champ</th>
+              <th>Ancienne valeur</th><th>Nouvelle valeur</th>
+              <th>Observation</th><th>Modifie par</th>
+            </tr></thead>
+            <tbody id="historique-body"></tbody>
+          </table>
+        </div>
+      </div>
       </div><!-- fin emp-list -->
 
       <!-- MODIFICATION EMPLOYÉ -->
