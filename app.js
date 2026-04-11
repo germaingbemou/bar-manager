@@ -670,15 +670,19 @@ async function loadEmployes() {
   var avances = r3.data || [];
   var presences = r4.data || [];
   var COLORS = ['#6ee7b7','#3b82f6','#fbbf24','#a78bfa','#f87171','#34d399','#60a5fa'];
+  window._employes_data = employes;
   document.getElementById('emp-grid').innerHTML = employes.map(function(e,i) {
     var pr = primes.filter(function(p){return p.employe_id===e.id;}).reduce(function(s,p){return s+p.montant;}, 0);
     var jours = presences.filter(function(p){return p.employe_id===e.id&&p.statut==='present';}).length;
     var col = COLORS[i%COLORS.length];
-    return '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px;cursor:pointer;transition:all .15s" onmouseenter="this.style.borderColor=\''+col+'44\'" onmouseleave="this.style.borderColor=\'rgba(255,255,255,0.07)\'">'
-      +'<div style="width:36px;height:36px;border-radius:50%;background:'+col+'22;color:'+col+';display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;margin-bottom:8px">'+e.nom.substring(0,2)+'</div>'
+    return '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px;transition:all .15s" onmouseenter="this.style.borderColor=\''+col+'44\'" onmouseleave="this.style.borderColor=\'rgba(255,255,255,0.07)\'">'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">'
+        +'<div style="width:36px;height:36px;border-radius:50%;background:'+col+'22;color:'+col+';display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600">'+e.nom.substring(0,2)+'</div>'
+        +'<button style="background:rgba(110,231,183,0.1);border:1px solid rgba(110,231,183,0.3);color:#6ee7b7;padding:3px 9px;border-radius:6px;font-size:10px;cursor:pointer" data-id="'+e.id+'" onclick="ouvrirModifEmploye(this.dataset.id)">Modifier</button>'
+      +'</div>'
       +'<div style="font-size:13px;font-weight:500;color:var(--text)">'+e.nom+'</div>'
-      +'<div style="font-size:10px;color:var(--text3);margin-bottom:8px">'+e.poste+'</div>'
-      +'<div style="font-size:11px;color:var(--text2);font-family:var(--mono)">'+fmt(e.salaire)+' GNF</div>'
+      +'<div style="font-size:10px;color:var(--text3);margin-bottom:6px">'+e.poste+'</div>'
+      +'<div style="font-size:11px;color:var(--text2);font-family:var(--mono)">'+fmt(e.salaire)+' GNF/mois</div>'
       +'<div style="font-size:10px;color:var(--text3);margin-top:2px">'+jours+' jours · Primes: '+fmt(pr)+' GNF</div>'
       +'<div class="prog" style="margin-top:8px"><div class="prog-fill" style="width:'+Math.min(100,jours/30*100)+'%;background:'+col+'"></div></div>'
       +'</div>';
