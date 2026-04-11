@@ -665,6 +665,7 @@ async function loadEmployes() {
   ]);
   var r1={data:emp_e}, r2={data:emp_p}, r3={data:emp_a}, r4={data:emp_pr};
   document.getElementById('emp-loading').style.display = 'none';
+  renderEmpListeGlobale(employes, primes, avances, presences);
   var employes = r1.data || [];
   var primes = r2.data || [];
   var avances = r3.data || [];
@@ -1068,6 +1069,37 @@ async function supprimerPoste(id, nom) {
   loadPostes();
 }
 
+
+
+function renderEmpListeGlobale(employes, primes, avances, presences) {
+  var tbody = document.getElementById('emp-liste-body');
+  if (!tbody) return;
+
+  var COLORS = ['#6ee7b7','#3b82f6','#fbbf24','#a78bfa','#f87171','#34d399','#60a5fa'];
+
+  tbody.innerHTML = employes.map(function(e, i) {
+    var pr = (primes||[]).filter(function(p){return p.employe_id===e.id;}).reduce(function(s,p){return s+p.montant;}, 0);
+    var av = (avances||[]).filter(function(a){return a.employe_id===e.id;}).reduce(function(s,a){return s+a.montant;}, 0);
+    var jours = (presences||[]).filter(function(p){return p.employe_id===e.id&&p.statut==='present';}).length;
+    var col = COLORS[i % COLORS.length];
+    var dateEmb = e.date_embauche ? formatDateDisplay(e.date_embauche) : '—';
+    var net = e.salaire + pr - av;
+
+    return '<tr onclick="ouvrirModifEmploye(this.dataset.id)" data-id="'+e.id+'" style="cursor:pointer">'
+      +'<td>'
+        +'<div style="display:flex;align-items:center;gap:8px">'
+          +'<div style="width:26px;height:26px;border-radius:50%;background:'+col+'22;color:'+col+';display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;flex-shrink:0">'+e.nom.substring(0,2)+'</div>'
+          +'<span style="font-weight:500;color:var(--text)">'+e.nom+'</span>'
+        +'</div>'
+      +'</td>'
+      +'<td><span class="badge badge-blue">'+e.poste+'</span></td>'
+      +'<td style="font-family:var(--mono)">'+dateEmb+'</td>'
+      +'<td style="font-family:var(--mono)">'+fmt(e.salaire)+' GNF</td>'
+      +'<td style="font-family:var(--mono);text-align:center">'+(e.bonus_pct>0?e.bonus_pct+'%':'—')+'</td>'
+      +'<td style="font-family:var(--mono)">'+(e.telephone||'—')+'</td>'
+      +'</tr>';
+  }).join('') || '<tr><td colspan="6" class="empty">Aucun employe</td></tr>';
+}
 
 function go(id, el) {
   document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active');});
