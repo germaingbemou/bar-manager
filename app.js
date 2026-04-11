@@ -467,9 +467,27 @@ async function initVentes() {
   const r = { data: await dbGet('produits', {order: 'nom'}) };
   const produits = r.data || [];
   window._produits = produits;
+  // Charger les gérants depuis la table employes
+  await chargerGerants();
   // Charger les stocks pour la date sélectionnée
   var date = document.getElementById('v-date') ? document.getElementById('v-date').value : todayISO();
   await chargerStocksDate(date);
+}
+
+async function chargerGerants() {
+  var employes = await dbGet('employes', {});
+  // Filtrer les gérants uniquement
+  var gerants = employes.filter(function(e) {
+    return e.poste && e.poste.toLowerCase().includes('gerant');
+  });
+  // Si aucun gérant trouvé, prendre tous les employés
+  if (!gerants.length) gerants = employes;
+  var sel = document.getElementById('v-gerant');
+  if (!sel) return;
+  var current = sel.value;
+  sel.innerHTML = gerants.map(function(e) {
+    return '<option value="'+e.nom+'"'+(e.nom===current?' selected':'')+'>'+e.nom+'</option>';
+  }).join('');
 }
 
 async function chargerStocksDate(date) {
@@ -482,6 +500,29 @@ async function chargerStocksDate(date) {
 
   // Chercher les ventes existantes pour cette date
   var ventesDate = (await dbGet('ventes', {})).filter(function(v){ return v.date === date; });
+  // Si des ventes existent, mettre à jour le gérant automatiquement
+  if (ventesDate.length > 0 && ventesDate[0].gerant) {
+    var selGerant = document.getElementById('v-gerant');
+    if (selGerant) {
+      // Chercher l'option correspondante
+      var found = false;
+      for (var o = 0; o < selGerant.options.length; o++) {
+        if (selGerant.options[o].value === ventesDate[0].gerant) {
+          selGerant.selectedIndex = o;
+          found = true;
+          break;
+        }
+      }
+      // Si gérant pas dans la liste, l'ajouter temporairement
+      if (!found) {
+        var opt = document.createElement('option');
+        opt.value = ventesDate[0].gerant;
+        opt.text = ventesDate[0].gerant;
+        selGerant.add(opt);
+        selGerant.value = ventesDate[0].gerant;
+      }
+    }
+  }
 
   // Chercher la veille — stock initial = restant de la veille
   var dateObj = new Date(date);
