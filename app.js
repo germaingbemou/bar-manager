@@ -412,6 +412,29 @@ async function refreshDashboardWithFilter() {
   if (!page) return;
   var pageId = page.id.replace('page-','');
   if (pageId === 'dashboard') initDashboard();
+  else if (pageId === 'depenses') loadDepenses();
+  else if (pageId === 'achats') loadAchats();
+  else if (pageId === 'analyse') initAnalyse();
+}
+
+async function loadAchats() {
+  document.getElementById('ach-loading').style.display = 'flex';
+  var r = { data: (await dbGet('achats', {})).slice().sort(function(a,b){return b.date>a.date?1:-1;}) };
+  document.getElementById('ach-loading').style.display = 'none';
+  var data = filterDeps(r.data || []);
+  var total = data.reduce(function(s,a){return s+(a.quantite||0)*(a.prix_unitaire||0);}, 0);
+  var at = document.getElementById('ach-total');
+  if(at) at.textContent = 'Total : ' + fmt(total) + ' GNF';
+  document.getElementById('a-body').innerHTML = data.map(function(a) {
+    var dateAff = a.date ? formatDateDisplay(a.date) : '—';
+    return '<tr>'
+      +'<td style="font-family:var(--mono)">'+dateAff+'</td>'
+      +'<td>'+a.produit_nom+'</td>'
+      +'<td style="font-family:var(--mono)">'+a.quantite+'</td>'
+      +'<td style="font-family:var(--mono)">'+fmt(a.prix_unitaire)+' GNF</td>'
+      +'<td style="font-family:var(--mono)">'+fmt((a.quantite||0)*(a.prix_unitaire||0))+' GNF</td>'
+      +'</tr>';
+  }).join('') || '<tr><td colspan="5" class="empty">Aucun achat pour cette periode</td></tr>';
 }
 
 
@@ -738,12 +761,12 @@ async function loadDepenses() {
   document.getElementById('dep-loading').style.display = 'flex';
   var r = { data: (await dbGet('depenses', {})).slice().sort(function(a,b){return b.date>a.date?1:-1;}) };
   document.getElementById('dep-loading').style.display = 'none';
-  var data = r.data || [];
+  var data = filterDeps(r.data || []);
   var total = data.reduce(function(s,d){return s+d.montant;}, 0);
   var dt = document.getElementById('dep-total');
   if(dt) dt.textContent = 'Total : ' + fmt(total) + ' GNF';
   document.getElementById('d-body').innerHTML = data.map(function(d) {
-    return '<tr><td>'+d.date+'</td><td>'+d.designation+'</td><td><span class="badge badge-blue">'+d.categorie+'</span></td>'
+    var dateD = d.date ? formatDateDisplay(d.date) : '—'; return '<tr><td style="font-family:var(--mono)">'+dateD+'</td><td>'+d.designation+'</td><td><span class="badge badge-blue">'+d.categorie+'</span></td>'
       +'<td style="font-family:var(--mono)">'+fmt(d.montant)+' GNF</td>'
       +'<td><button class="btn btn-danger" style="padding:2px 7px;font-size:10px" onclick="delDepense(\''+d.id+'\')">x</button></td></tr>';
   }).join('') || '<tr><td colspan="5" class="empty">Aucune depense</td></tr>';
@@ -784,7 +807,7 @@ async function loadAchats() {
   document.getElementById('ach-loading').style.display = 'flex';
   var r = { data: (await dbGet('achats', {})).slice().sort(function(a,b){return b.date>a.date?1:-1;}) };
   document.getElementById('ach-loading').style.display = 'none';
-  var data = r.data || [];
+  var data = filterDeps(r.data || []); // réutilise filterDeps car même logique date
   var total = data.reduce(function(s,a){return s+(a.quantite||0)*(a.prix_unitaire||0);}, 0);
   var at = document.getElementById('ach-total');
   if(at) at.textContent = 'Total : ' + fmt(total) + ' GNF';
@@ -1343,7 +1366,7 @@ function go(id, el) {
   else if(id==='ventes') initVentes();
   else if(id==='stocks') initStocks();
   else if(id==='depenses') loadDepenses();
-  else if(id==='achats') initAchats();
+  else if(id==='achats') loadAchats();
   else if(id==='employes') { chargerPostes(); loadEmployes(); setDefaultDates(); }
   else if(id==='presences') initPresences();
   else if(id==='salaires') initSalaires();
