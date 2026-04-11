@@ -879,6 +879,8 @@ async function ouvrirModifEmploye(empId) {
   document.getElementById('mod-salaire').value = emp.salaire;
   document.getElementById('mod-bonus').value = emp.bonus_pct || 0;
   document.getElementById('mod-tel').value = emp.telephone || '';
+  var modObs = document.getElementById('mod-observation');
+  if (modObs) modObs.value = emp.observation || '';
   // Afficher le panneau
   document.getElementById('modif-panel').style.display = 'block';
   document.getElementById('modif-panel').scrollIntoView({behavior:'smooth'});
@@ -892,7 +894,8 @@ async function sauvegarderModifEmploye() {
   var bonus_pct = parseFloat(document.getElementById('mod-bonus').value)||0;
   var telephone = document.getElementById('mod-tel').value.trim();
   if (!nom || !salaire) { showToast('Nom et salaire obligatoires', 'error'); return; }
-  var r = await db.from('employes').update({nom:nom, poste:poste, salaire:salaire, bonus_pct:bonus_pct, telephone:telephone}).eq('id', id);
+  var observation = document.getElementById('mod-observation') ? document.getElementById('mod-observation').value.trim() : '';
+  var r = await db.from('employes').update({nom:nom, poste:poste, salaire:salaire, bonus_pct:bonus_pct, telephone:telephone, observation:observation}).eq('id', id);
   if (r.error) { showToast('Erreur: '+r.error.message, 'error'); return; }
   invalidateCache('employes');
   document.getElementById('modif-panel').style.display = 'none';
@@ -1085,6 +1088,7 @@ function renderEmpListeGlobale(employes, primes, avances, presences) {
     var dateEmb = e.date_embauche ? formatDateDisplay(e.date_embauche) : '—';
     var net = e.salaire + pr - av;
 
+    // Afficher — si jamais modifié (updated_at null)
     var updatedAt = e.updated_at
       ? formatDateDisplay(e.updated_at.split('T')[0]) + ' ' + e.updated_at.split('T')[1].substring(0,5)
       : '—';
@@ -1100,7 +1104,8 @@ function renderEmpListeGlobale(employes, primes, avances, presences) {
       +'<td style="font-family:var(--mono)">'+fmt(e.salaire)+' GNF</td>'
       +'<td style="font-family:var(--mono);text-align:center">'+(e.bonus_pct>0?e.bonus_pct+'%':'—')+'</td>'
       +'<td style="font-family:var(--mono)">'+(e.telephone||'—')+'</td>'
-      +'<td style="font-family:var(--mono);font-size:10px;color:var(--text3)">'+updatedAt+'</td>'
+      +'<td style="font-family:var(--mono);font-size:10px;color:'+(e.updated_at?'var(--accent)':'var(--text3)')+'">'+(e.updated_at?'<span class="badge badge-green">'+updatedAt+'</span>':'—')+'</td>'
+      +'<td style="font-size:10px;color:var(--text3);max-width:150px;white-space:normal">'+(e.observation||'—')+'</td>'
       +'</tr>';
   }).join('') || '<tr><td colspan="6" class="empty">Aucun employe</td></tr>';
 }
