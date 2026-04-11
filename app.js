@@ -467,11 +467,48 @@ async function initVentes() {
   const r = { data: await dbGet('produits', {order: 'nom'}) };
   const produits = r.data || [];
   window._produits = produits;
+  // Charger les stocks pour la date sélectionnée
+  var date = document.getElementById('v-date') ? document.getElementById('v-date').value : todayISO();
+  await chargerStocksDate(date);
+}
+
+async function chargerStocksDate(date) {
+  var produits = window._produits || [];
+  if (!produits.length) {
+    var r = await dbGet('produits', {order: 'nom'});
+    produits = r || [];
+    window._produits = produits;
+  }
+
+  // Chercher les ventes existantes pour cette date
+  var ventesDate = (await dbGet('ventes', {})).filter(function(v){ return v.date === date; });
+
+  // Chercher la veille — stock initial = restant de la veille
+  var dateObj = new Date(date);
+  dateObj.setDate(dateObj.getDate() - 1);
+  var veille = dateObj.toISOString().split('T')[0];
+  var ventesVeille = (await dbGet('ventes', {})).filter(function(v){ return v.date === veille; });
+
   document.getElementById('v-body').innerHTML = produits.map(function(p,i) {
-    return '<tr><td>'+p.nom+'</td>'
-      +'<td><input type="number" value="'+(p.stock||0)+'" style="width:60px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:3px 6px;font-size:11px" oninput="recalcV()"></td>'
-      +'<td><input type="number" value="0" style="width:60px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:3px 6px;font-size:11px" oninput="recalcV()"></td>'
-      +'<td><input type="number" value="'+(p.stock||0)+'" style="width:60px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:3px 6px;font-size:11px" oninput="recalcV()"></td>'
+    // Si vente existante pour cette date → préremplir avec ses valeurs
+    var venteExist = ventesDate.find(function(v){ return v.produit_nom === p.nom; });
+    // Stock initial = restant de la veille si disponible, sinon stock actuel
+    var venteVeille = ventesVeille.find(function(v){ return v.produit_nom === p.nom; });
+    var stockInit = venteExist
+      ? (venteExist.stock_initial || 0)
+      : (venteVeille ? (venteVeille.stock_apres || 0) : (p.stock || 0));
+    var stockRecu = venteExist ? (venteExist.stock_recu || 0) : 0;
+    var stockApres = venteExist ? (venteExist.stock_apres || stockInit) : stockInit;
+    var estSaisi = venteExist ? true : false;
+
+    var rowStyle = estSaisi ? 'background:rgba(110,231,183,0.04)' : '';
+    var label = estSaisi ? '<span class="badge badge-green" style="font-size:9px">Saisi</span>' : '';
+
+    return '<tr style="'+rowStyle+'">'
+      +'<td>'+p.nom+' '+label+'</td>'
+      +'<td><input type="number" value="'+stockInit+'" style="width:60px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:3px 6px;font-size:11px" oninput="recalcV()"></td>'
+      +'<td><input type="number" value="'+stockRecu+'" style="width:60px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:3px 6px;font-size:11px" oninput="recalcV()"></td>'
+      +'<td><input type="number" value="'+stockApres+'" style="width:60px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:3px 6px;font-size:11px" oninput="recalcV()"></td>'
       +'<td id="vs-'+i+'" style="font-weight:500;color:var(--accent);font-family:var(--mono)">0</td>'
       +'<td style="font-family:var(--mono)">'+fmt(p.prix_vente)+'</td>'
       +'<td id="vr-'+i+'" style="font-family:var(--mono)">0</td></tr>';
