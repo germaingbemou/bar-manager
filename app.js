@@ -820,10 +820,13 @@ async function delDepense(id) {
 }
 
 async function initAchats() {
-  var r = await db.from('produits').select('id,nom').order('nom');
-  var produits = r.data || [];
+  var produits = await dbGet('produits', {order: 'nom'});
   var sel = document.getElementById('a-prod');
-  sel.innerHTML = produits.map(function(p){ return '<option value="'+p.id+'" data-nom="'+p.nom+'">'+p.nom+'</option>'; }).join('');
+  if (sel) {
+    sel.innerHTML = produits.map(function(p){
+      return '<option value="'+p.id+'" data-nom="'+p.nom+'">'+p.nom+'</option>';
+    }).join('');
+  }
   loadAchats();
 }
 
@@ -1547,7 +1550,7 @@ function go(id, el) {
   else if(id==='ventes') initVentes();
   else if(id==='stocks') initStocks();
   else if(id==='depenses') loadDepenses();
-  else if(id==='achats') loadAchats();
+  else if(id==='achats') initAchats();
   else if(id==='employes') { chargerPostes(); loadEmployes(); setDefaultDates(); }
   else if(id==='presences') initPresences();
   else if(id==='salaires') initSalaires();
