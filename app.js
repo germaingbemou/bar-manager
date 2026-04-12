@@ -12,21 +12,38 @@ const db = createClient(SUPABASE_URL, SUPABASE_KEY);
 const CACHE_TTL = 1 * 60 * 1000; // 1 minute
 const _cache = {};
 
+// Verrous pour éviter les requêtes parallèles sur la même table
+var _pending = {};
+
 async function dbGet(table, query) {
   const key = table + JSON.stringify(query || {});
   const now = Date.now();
+
+  // Cache valide → retourner immédiatement
   if (_cache[key] && (now - _cache[key].ts) < CACHE_TTL) {
     return _cache[key].data;
   }
-  // Limite élevée pour récupérer toutes les données (max Supabase = 10000)
-  let q = db.from(table).select('*').limit(500000);
-  if (query && query.order) q = q.order(query.order, {ascending: query.asc !== false});
-  if (query && query.eq) q = q.eq(query.eq[0], query.eq[1]);
-  const { data, error } = await q;
-  if (!error && data) {
-    _cache[key] = { data: data, ts: now };
+
+  // Requête déjà en cours → attendre qu'elle se termine
+  if (_pending[key]) {
+    await _pending[key];
+    return _cache[key] ? _cache[key].data : [];
   }
-  return data || [];
+
+  // Lancer la requête et enregistrer la promesse
+  _pending[key] = (async function() {
+    let q = db.from(table).select('*').limit(500000);
+    if (query && query.order) q = q.order(query.order, {ascending: query.asc !== false});
+    if (query && query.eq) q = q.eq(query.eq[0], query.eq[1]);
+    const { data, error } = await q;
+    if (!error && data) {
+      _cache[key] = { data: data, ts: Date.now() };
+    }
+    delete _pending[key];
+  })();
+
+  await _pending[key];
+  return _cache[key] ? _cache[key].data : [];
 }
 
 function invalidateCache(table) {
@@ -680,7 +697,11 @@ function applyVhCustomFilter() {
   loadHistVentes();
 }
 
+var _loadingHist = false;
 async function loadHistVentes() {
+  if (_loadingHist) return; // éviter les appels simultanés
+  _loadingHist = true;
+  try {
   document.getElementById('hist-loading').style.display = 'flex';
   // Charger toutes les ventes depuis le cache
   var toutesVentes = await dbGet('ventes', {});
@@ -707,6 +728,9 @@ async function loadHistVentes() {
       +'<td>'+(v.gerant||'—')+'</td>'
       +'</tr>';
   }).join('') || '<tr><td colspan="6" class="empty">Aucune vente pour cette periode</td></tr>';
+  } finally {
+    _loadingHist = false;
+  }
 }
 
 async function initStocks() {
