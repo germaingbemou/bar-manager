@@ -19,7 +19,7 @@ async function dbGet(table, query) {
     return _cache[key].data;
   }
   // Limite élevée pour récupérer toutes les données (max Supabase = 10000)
-  let q = db.from(table).select('*').limit(500000);
+  let q = db.from(table).select('*').limit(50000);
   if (query && query.order) q = q.order(query.order, {ascending: query.asc !== false});
   if (query && query.eq) q = q.eq(query.eq[0], query.eq[1]);
   const { data, error } = await q;
