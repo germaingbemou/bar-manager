@@ -450,8 +450,17 @@ async function loadAchats() {
       +'<td style="font-family:var(--mono)">'+a.quantite+'</td>'
       +'<td style="font-family:var(--mono)">'+fmt(a.prix_unitaire)+' GNF</td>'
       +'<td style="font-family:var(--mono)">'+fmt((a.quantite||0)*(a.prix_unitaire||0))+' GNF</td>'
+      +'<td style="display:flex;gap:4px">'
+        +'<button class="btn btn-accent" style="padding:2px 7px;font-size:10px" '
+          +'data-id="'+a.id+'" data-date="'+a.date+'" data-nom="'+a.produit_nom+'" '
+          +'data-qte="'+a.quantite+'" data-prix="'+a.prix_unitaire+'" '
+          +'onclick="ouvrirModifAchat(this)">Modifier</button>'
+        +'<button class="btn btn-danger" style="padding:2px 7px;font-size:10px" '
+          +'data-id="'+a.id+'" data-qte="'+a.quantite+'" data-prodid="'+(a.produit_id||'')+'" '
+          +'onclick="supprimerAchat(this)">x</button>'
+      +'</td>'
       +'</tr>';
-  }).join('') || '<tr><td colspan="5" class="empty">Aucun achat pour cette periode</td></tr>';
+  }).join('') || '<tr><td colspan="6" class="empty">Aucun achat pour cette periode</td></tr>';
 }
 
 
@@ -630,86 +639,27 @@ function recalcV() {
 }
 
 async function saveVentes() {
-  var btn = document.querySelector('#vt-saisie .btn.btn-accent');
-  if (btn) btn.disabled = true;
-
-  try {
-    var date = document.getElementById('v-date').value;
-    var gerant = document.getElementById('v-gerant').value;
-
-    if (!date) {
-      showToast('Date obligatoire', 'error');
-      return;
-    }
-
-    var rows = [];
-    (window._produits || []).forEach(function(p, i) {
-      var row = document.getElementById('v-body') && document.getElementById('v-body').rows[i];
-      if (!row) return;
-
-      var init = parseInt(row.cells[1].querySelector('input').value) || 0;
-      var recu = parseInt(row.cells[2].querySelector('input').value) || 0;
-      var after = parseInt(row.cells[3].querySelector('input').value) || 0;
-      var sold = Math.max(0, init + recu - after);
-
-      // garder TOUTES les lignes pour que la dernière sauvegarde remplace vraiment l'ancienne
-      rows.push({
-        date: date,
-        produit_id: p.id,
-        produit_nom: p.nom,
-        stock_initial: init,
-        stock_recu: recu,
-        stock_apres: after,
-        quantite_vendue: sold,
-        prix_vente: p.prix_vente,
-        gerant: gerant
-      });
-    });
-
-    if (!rows.length) {
-      showToast('Aucune vente a enregistrer', 'error');
-      return;
-    }
-
-    // 1) supprimer les anciennes lignes de cette date
-    var del = await db.from('ventes').delete().eq('date', date);
-    if (del.error) {
-      showToast('Erreur suppression anciennes ventes: ' + del.error.message, 'error');
-      return;
-    }
-
-    // 2) inserer la dernière version
-    var ins = await db.from('ventes').insert(rows);
-    if (ins.error) {
-      showToast('Erreur enregistrement ventes: ' + ins.error.message, 'error');
-      return;
-    }
-
-    // 3) mettre à jour le stock produit
-    for (var j = 0; j < rows.length; j++) {
-      var up = await db
-        .from('produits')
-        .update({ stock: rows[j].stock_apres })
-        .eq('id', rows[j].produit_id);
-
-      if (up.error) {
-        showToast('Erreur mise a jour stock: ' + up.error.message, 'error');
-        return;
-      }
-    }
-
-    invalidateCache('ventes');
-    invalidateCache('produits');
-
-    showToast('Ventes mises a jour avec succes !');
-
-    await chargerStocksDate(date);
-    await loadHistVentes();
-    await initDashboard();
-  } finally {
-    if (btn) btn.disabled = false;
+  var date = document.getElementById('v-date').value;
+  var gerant = document.getElementById('v-gerant').value;
+  var rows = [];
+  (window._produits || []).forEach(function(p, i) {
+    var row = document.getElementById('v-body') && document.getElementById('v-body').rows[i];
+    if (!row) return;
+    var init = parseInt(row.cells[1].querySelector('input').value)||0;
+    var recu = parseInt(row.cells[2].querySelector('input').value)||0;
+    var after = parseInt(row.cells[3].querySelector('input').value)||0;
+    var sold = Math.max(0, init + recu - after);
+    if (sold > 0) rows.push({ date: date, produit_id: p.id, produit_nom: p.nom, stock_initial: init, stock_recu: recu, stock_apres: after, quantite_vendue: sold, prix_vente: p.prix_vente, gerant: gerant });
+  });
+  if (!rows.length) { showToast('Aucune vente a enregistrer', 'error'); return; }
+  var r = await db.from('ventes').insert(rows);
+  if (r.error) { showToast('Erreur: ' + r.error.message, 'error'); return; }
+  for (var i=0; i<rows.length; i++) {
+    await db.from('produits').update({ stock: rows[i].stock_apres }).eq('id', rows[i].produit_id);
   }
+  invalidateCache('ventes'); invalidateCache('produits'); showToast(rows.length + ' ventes enregistrees !');
 }
+
 
 // ============================================
 // FILTRE HISTORIQUE VENTES
@@ -883,10 +833,28 @@ async function initAchats() {
   var sel = document.getElementById('a-prod');
   if (sel) {
     sel.innerHTML = produits.map(function(p){
-      return '<option value="'+p.id+'" data-nom="'+p.nom+'">'+p.nom+'</option>';
+      return '<option value="'+p.id+'" data-nom="'+p.nom+'" data-prix="'+(p.prix_achat||0)+'">'+p.nom+'</option>';
     }).join('');
+    // Afficher le prix du premier produit par défaut
+    remplirPrixAchat();
   }
   loadAchats();
+}
+
+function remplirPrixAchat() {
+  var sel = document.getElementById('a-prod');
+  var prixInput = document.getElementById('a-prix');
+  if (!sel || !prixInput) return;
+  var opt = sel.options[sel.selectedIndex];
+  if (!opt) return;
+  var prix = parseInt(opt.dataset.prix) || 0;
+  if (prix > 0) {
+    prixInput.value = prix;
+    prixInput.style.borderColor = 'rgba(110,231,183,0.4)'; // vert = rempli auto
+  } else {
+    prixInput.value = '';
+    prixInput.style.borderColor = ''; // reset
+  }
 }
 
 async function loadAchats() {
@@ -906,81 +874,21 @@ async function loadAchats() {
 }
 
 async function addAchat() {
-  var btn = document.querySelector('#page-achats .btn.btn-accent');
-  if (btn) btn.disabled = true;
-
-  try {
-    var date = document.getElementById('a-date').value;
-    var sel = document.getElementById('a-prod');
-    var produit_id = sel.value;
-    var produit_nom = sel.options[sel.selectedIndex].dataset.nom;
-    var quantite = parseFloat(document.getElementById('a-qte').value) || 0;
-    var prix_unitaire = parseInt(document.getElementById('a-prix').value) || 0;
-
-    if (!date || !produit_id || !quantite || !prix_unitaire) {
-      showToast('Remplissez tous les champs', 'error');
-      return;
-    }
-
-    // 1. Lire l'ancien achat pour cette date + ce produit
-    var anciens = await dbGet('achats', {});
-    var ancien = anciens.find(function(a) {
-      return a.date === date && a.produit_id === produit_id;
-    });
-
-    // 2. Supprimer l'ancienne ligne si elle existe
-    if (ancien) {
-      var del = await db.from('achats').delete().eq('id', ancien.id);
-      if (del.error) {
-        showToast('Erreur suppression ancien achat: ' + del.error.message, 'error');
-        return;
-      }
-    }
-
-    // 3. Insérer la nouvelle ligne
-    var ins = await db.from('achats').insert({
-      date: date,
-      produit_id: produit_id,
-      produit_nom: produit_nom,
-      quantite: quantite,
-      prix_unitaire: prix_unitaire
-    });
-
-    if (ins.error) {
-      showToast('Erreur: ' + ins.error.message, 'error');
-      return;
-    }
-
-    // 4. Corriger le stock produit
-    var rp = await db.from('produits').select('stock').eq('id', produit_id).single();
-    if (rp.error || !rp.data) {
-      showToast('Erreur lecture stock produit', 'error');
-      return;
-    }
-
-    var stockActuel = rp.data.stock || 0;
-    var ancienneQuantite = ancien ? (parseFloat(ancien.quantite) || 0) : 0;
-
-    // On retire l'ancien achat du stock, puis on ajoute le nouveau
-    var nouveauStock = stockActuel - ancienneQuantite + quantite;
-
-    var up = await db.from('produits').update({ stock: nouveauStock }).eq('id', produit_id);
-    if (up.error) {
-      showToast('Erreur mise a jour stock: ' + up.error.message, 'error');
-      return;
-    }
-
-    document.getElementById('a-qte').value = '';
-    document.getElementById('a-prix').value = '';
-
-    invalidateCache('achats');
-    invalidateCache('produits');
-
-    showToast('Achat mis a jour !');
-    await loadAchats();
-  } finally {
-    if (btn) btn.disabled = false;
-  }
+  var date = document.getElementById('a-date').value;
+  var sel = document.getElementById('a-prod');
+  var produit_id = sel.value;
+  var produit_nom = sel.options[sel.selectedIndex].dataset.nom;
+  var quantite = parseFloat(document.getElementById('a-qte').value)||0;
+  var prix_unitaire = parseInt(document.getElementById('a-prix').value)||0;
+  if (!quantite || !prix_unitaire) { showToast('Remplissez tous les champs', 'error'); return; }
+  var r = await db.from('achats').insert({ date: date, produit_id: produit_id, produit_nom: produit_nom, quantite: quantite, prix_unitaire: prix_unitaire });
+  if (r.error) { showToast('Erreur: ' + r.error.message, 'error'); return; }
+  var rp = await db.from('produits').select('stock').eq('id', produit_id).single();
+  if (rp.data) await db.from('produits').update({ stock: (rp.data.stock||0) + quantite }).eq('id', produit_id);
+  document.getElementById('a-qte').value = '';
+  document.getElementById('a-prix').value = '';
+  invalidateCache('achats'); invalidateCache('produits'); showToast('Achat enregistre !');
+  loadAchats();
 }
 
 async function loadEmployes() {
@@ -1656,6 +1564,101 @@ async function loadStockPeriode() {
       {data:top8m.map(function(p){return p.cout;}), backgroundColor:'rgba(248,113,113,0.6)', label:'Cout', borderRadius:3}
     ]
   }, options:{plugins:{legend:{display:true, position:'bottom', labels:{color:'#9090a8',font:{size:10}}}}}});
+}
+
+
+// ============================================
+// MODIFICATION ET SUPPRESSION DES ACHATS
+// ============================================
+var _achatEnCoursId = null; // id de l'achat en cours de modification
+
+function ouvrirModifAchat(btn) {
+  _achatEnCoursId = btn.dataset.id;
+  // Remplir le formulaire avec les valeurs existantes
+  document.getElementById('a-date').value = btn.dataset.date;
+  document.getElementById('a-qte').value = btn.dataset.qte;
+  document.getElementById('a-prix').value = btn.dataset.prix;
+  // Sélectionner le bon produit
+  var sel = document.getElementById('a-prod');
+  for (var i = 0; i < sel.options.length; i++) {
+    if (sel.options[i].dataset.nom === btn.dataset.nom) {
+      sel.selectedIndex = i;
+      break;
+    }
+  }
+  // Changer le bouton Enregistrer en Mettre à jour
+  var btnSave = document.querySelector('#page-achats .btn.btn-accent[onclick="addAchat()"]');
+  if (btnSave) {
+    btnSave.textContent = 'Mettre a jour';
+    btnSave.setAttribute('onclick', 'updateAchat()');
+  }
+  // Scroller vers le formulaire
+  document.getElementById('a-date').scrollIntoView({behavior:'smooth'});
+  showToast('Modifiez les valeurs puis cliquez Mettre a jour');
+}
+
+async function updateAchat() {
+  if (!_achatEnCoursId) { addAchat(); return; }
+  var date = document.getElementById('a-date').value;
+  var sel = document.getElementById('a-prod');
+  var produit_id = sel.value;
+  var produit_nom = sel.options[sel.selectedIndex].dataset.nom;
+  var quantite = parseFloat(document.getElementById('a-qte').value)||0;
+  var prix_unitaire = parseInt(document.getElementById('a-prix').value)||0;
+  if (!quantite || !prix_unitaire) { showToast('Remplissez tous les champs', 'error'); return; }
+
+  // Récupérer l'ancienne quantité pour ajuster le stock
+  var r0 = await db.from('achats').select('quantite,produit_id').eq('id', _achatEnCoursId).single();
+  var ancienneQte = r0.data ? (r0.data.quantite || 0) : 0;
+  var ancienProdId = r0.data ? r0.data.produit_id : produit_id;
+
+  // Mettre à jour l'achat
+  var r = await db.from('achats').update({
+    date: date, produit_id: produit_id, produit_nom: produit_nom,
+    quantite: quantite, prix_unitaire: prix_unitaire
+  }).eq('id', _achatEnCoursId);
+  if (r.error) { showToast('Erreur: '+r.error.message, 'error'); return; }
+
+  // Ajuster le stock : retirer l'ancienne quantité, ajouter la nouvelle
+  var rp = await db.from('produits').select('stock').eq('id', ancienProdId).single();
+  if (rp.data) {
+    var newStock = (rp.data.stock || 0) - ancienneQte + quantite;
+    await db.from('produits').update({ stock: newStock }).eq('id', ancienProdId);
+  }
+
+  // Réinitialiser le formulaire
+  _achatEnCoursId = null;
+  document.getElementById('a-qte').value = '';
+  document.getElementById('a-prix').value = '';
+  var btnSave = document.querySelector('#page-achats .btn.btn-accent[onclick="updateAchat()"]');
+  if (btnSave) {
+    btnSave.textContent = 'Enregistrer';
+    btnSave.setAttribute('onclick', 'addAchat()');
+  }
+  invalidateCache('achats'); invalidateCache('produits');
+  showToast('Achat mis a jour !');
+  loadAchats();
+}
+
+async function supprimerAchat(btn) {
+  if (!confirm('Supprimer cet achat ?')) return;
+  var id = btn.dataset.id;
+  var qte = parseFloat(btn.dataset.qte) || 0;
+  var prodId = btn.dataset.prodid;
+
+  var r = await db.from('achats').delete().eq('id', id);
+  if (r.error) { showToast('Erreur: '+r.error.message, 'error'); return; }
+
+  // Soustraire la quantité du stock
+  if (prodId) {
+    var rp = await db.from('produits').select('stock').eq('id', prodId).single();
+    if (rp.data) {
+      await db.from('produits').update({ stock: Math.max(0, (rp.data.stock||0) - qte) }).eq('id', prodId);
+    }
+  }
+  invalidateCache('achats'); invalidateCache('produits');
+  showToast('Achat supprime');
+  loadAchats();
 }
 
 function go(id, el) {
