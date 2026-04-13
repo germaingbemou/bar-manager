@@ -789,13 +789,63 @@ async function initStocks() {
 async function savePrixAchat(produitId) {
   var input = document.getElementById('prixachat-'+produitId);
   if (!input) return;
-  var prix = parseInt(input.value) || 0;
-  var r = await db.from('produits').update({ prix_achat: prix }).eq('id', produitId);
+  var nouveauPrix = parseInt(input.value) || 0;
+
+  // Récupérer l'ancien prix pour l'historique
+  var produits = await dbGet('produits', {});
+  var produit = produits.find(function(p){ return p.id === produitId; });
+  var ancienPrix = produit ? (produit.prix_achat || 0) : 0;
+  var produitNom = produit ? produit.nom : '';
+
+  // Mettre à jour le prix
+  var r = await db.from('produits').update({ prix_achat: nouveauPrix }).eq('id', produitId);
   if (r.error) { showToast('Erreur: '+r.error.message, 'error'); return; }
+
+  // Enregistrer dans l'historique si le prix a changé
+  if (ancienPrix !== nouveauPrix) {
+    await db.from('produits_prix_historique').insert({
+      produit_id: produitId,
+      produit_nom: produitNom,
+      ancien_prix: ancienPrix,
+      nouveau_prix: nouveauPrix,
+      type_prix: 'prix_achat',
+      modifie_par: currentUser ? currentUser.email : 'inconnu'
+    });
+  }
+
   invalidateCache('produits');
-  showToast('Prix achat mis a jour !');
-  // Mettre à jour aussi initAchats pour refléter le nouveau prix
+  showToast('Prix achat mis a jour : ' + fmt(ancienPrix) + ' → ' + fmt(nouveauPrix) + ' GNF');
   initStocks();
+}
+
+
+// ============================================
+// HISTORIQUE DES PRIX PRODUITS
+// ============================================
+async function loadHistoriquePrix() {
+  var r = await db.from('produits_prix_historique')
+    .select('*')
+    .order('modifie_le', {ascending: false})
+    .limit(200);
+  var data = r.data || [];
+  var tbody = document.getElementById('prix-historique-body');
+  if (!tbody) return;
+  tbody.innerHTML = data.map(function(h) {
+    var date = h.modifie_le
+      ? formatDateDisplay(h.modifie_le.split('T')[0]) + ' ' + h.modifie_le.split('T')[1].substring(0,5)
+      : '—';
+    var diff = (h.nouveau_prix || 0) - (h.ancien_prix || 0);
+    var diffColor = diff >= 0 ? 'var(--danger)' : 'var(--accent)'; // rouge si prix monte, vert si baisse
+    var diffSign = diff >= 0 ? '+' : '';
+    return '<tr>'
+      +'<td style="font-family:var(--mono);font-size:10px">'+date+'</td>'
+      +'<td style="font-weight:500">'+h.produit_nom+'</td>'
+      +'<td style="font-family:var(--mono)">'+fmt(h.ancien_prix||0)+' GNF</td>'
+      +'<td style="font-family:var(--mono);font-weight:500;color:var(--accent)">'+fmt(h.nouveau_prix||0)+' GNF</td>'
+      +'<td style="font-family:var(--mono);color:'+diffColor+'">'+diffSign+fmt(diff)+' GNF</td>'
+      +'<td style="font-size:10px;color:var(--text3)">'+h.modifie_par+'</td>'
+      +'</tr>';
+  }).join('') || '<tr><td colspan="6" class="empty">Aucune modification de prix</td></tr>';
 }
 
 async function saveSeuil(produitId) {
@@ -885,7 +935,7 @@ async function loadAchats() {
   var at = document.getElementById('ach-total');
   if(at) at.textContent = 'Total : ' + fmt(total) + ' GNF';
   document.getElementById('a-body').innerHTML = data.map(function(a) {
-    return '<tr><td>'+a.date+'</td><td>'+a.produit_nom+'</td>'
+    var dateA = a.date ? formatDateDisplay(a.date) : '—'; return '<tr><td style="font-family:var(--mono)">'+dateA+'</td><td>'+a.produit_nom+'</td>'
       +'<td style="font-family:var(--mono)">'+a.quantite+'</td>'
       +'<td style="font-family:var(--mono)">'+fmt(a.prix_unitaire)+'</td>'
       +'<td style="font-family:var(--mono)">'+fmt((a.quantite||0)*(a.prix_unitaire||0))+' GNF</td></tr>';
@@ -1689,7 +1739,7 @@ function go(id, el) {
   document.getElementById('pg-title').textContent = titles[id]||id;
   if(id==='dashboard') { initDashboard(); setDefaultDates(); }
   else if(id==='ventes') initVentes();
-  else if(id==='stocks') initStocks();
+  else if(id==='stocks') { initStocks(); loadHistoriquePrix(); }
   else if(id==='depenses') loadDepenses();
   else if(id==='achats') initAchats();
   else if(id==='employes') { chargerPostes(); loadEmployes(); setDefaultDates(); }
@@ -1717,7 +1767,7 @@ function swTab(el, tabId) {
   }
   if(tabId==='emp-add') loadPostes();
   if(tabId==='st-periode') { if(!spDebut) setSpFilter('month'); else loadStockPeriode(); }
-  if(tabId==='st-actuel') initStocks();
+  if(tabId==='st-actuel') { initStocks(); loadHistoriquePrix(); }
 
 }
 

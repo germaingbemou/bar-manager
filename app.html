@@ -428,6 +428,24 @@
         </div>
       </div>
 
+
+        <!-- HISTORIQUE DES PRIX -->
+        <div class="card" style="margin-top:12px">
+          <div class="card-title">Historique des modifications de prix
+            <button class="btn" style="font-size:10px;padding:3px 8px" onclick="loadHistoriquePrix()">Actualiser</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr>
+                <th>Date</th><th>Produit</th><th>Ancien prix</th>
+                <th>Nouveau prix</th><th>Variation</th><th>Modifie par</th>
+              </tr></thead>
+              <tbody id="prix-historique-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
       <!-- ONGLET PAR PÉRIODE -->
       <div id="st-periode" style="display:none">
         <div class="card" style="margin-bottom:12px">
