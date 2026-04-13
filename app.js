@@ -906,21 +906,81 @@ async function loadAchats() {
 }
 
 async function addAchat() {
-  var date = document.getElementById('a-date').value;
-  var sel = document.getElementById('a-prod');
-  var produit_id = sel.value;
-  var produit_nom = sel.options[sel.selectedIndex].dataset.nom;
-  var quantite = parseFloat(document.getElementById('a-qte').value)||0;
-  var prix_unitaire = parseInt(document.getElementById('a-prix').value)||0;
-  if (!quantite || !prix_unitaire) { showToast('Remplissez tous les champs', 'error'); return; }
-  var r = await db.from('achats').insert({ date: date, produit_id: produit_id, produit_nom: produit_nom, quantite: quantite, prix_unitaire: prix_unitaire });
-  if (r.error) { showToast('Erreur: ' + r.error.message, 'error'); return; }
-  var rp = await db.from('produits').select('stock').eq('id', produit_id).single();
-  if (rp.data) await db.from('produits').update({ stock: (rp.data.stock||0) + quantite }).eq('id', produit_id);
-  document.getElementById('a-qte').value = '';
-  document.getElementById('a-prix').value = '';
-  invalidateCache('achats'); invalidateCache('produits'); showToast('Achat enregistre !');
-  loadAchats();
+  var btn = document.querySelector('#page-achats .btn.btn-accent');
+  if (btn) btn.disabled = true;
+
+  try {
+    var date = document.getElementById('a-date').value;
+    var sel = document.getElementById('a-prod');
+    var produit_id = sel.value;
+    var produit_nom = sel.options[sel.selectedIndex].dataset.nom;
+    var quantite = parseFloat(document.getElementById('a-qte').value) || 0;
+    var prix_unitaire = parseInt(document.getElementById('a-prix').value) || 0;
+
+    if (!date || !produit_id || !quantite || !prix_unitaire) {
+      showToast('Remplissez tous les champs', 'error');
+      return;
+    }
+
+    // 1. Lire l'ancien achat pour cette date + ce produit
+    var anciens = await dbGet('achats', {});
+    var ancien = anciens.find(function(a) {
+      return a.date === date && a.produit_id === produit_id;
+    });
+
+    // 2. Supprimer l'ancienne ligne si elle existe
+    if (ancien) {
+      var del = await db.from('achats').delete().eq('id', ancien.id);
+      if (del.error) {
+        showToast('Erreur suppression ancien achat: ' + del.error.message, 'error');
+        return;
+      }
+    }
+
+    // 3. Insérer la nouvelle ligne
+    var ins = await db.from('achats').insert({
+      date: date,
+      produit_id: produit_id,
+      produit_nom: produit_nom,
+      quantite: quantite,
+      prix_unitaire: prix_unitaire
+    });
+
+    if (ins.error) {
+      showToast('Erreur: ' + ins.error.message, 'error');
+      return;
+    }
+
+    // 4. Corriger le stock produit
+    var rp = await db.from('produits').select('stock').eq('id', produit_id).single();
+    if (rp.error || !rp.data) {
+      showToast('Erreur lecture stock produit', 'error');
+      return;
+    }
+
+    var stockActuel = rp.data.stock || 0;
+    var ancienneQuantite = ancien ? (parseFloat(ancien.quantite) || 0) : 0;
+
+    // On retire l'ancien achat du stock, puis on ajoute le nouveau
+    var nouveauStock = stockActuel - ancienneQuantite + quantite;
+
+    var up = await db.from('produits').update({ stock: nouveauStock }).eq('id', produit_id);
+    if (up.error) {
+      showToast('Erreur mise a jour stock: ' + up.error.message, 'error');
+      return;
+    }
+
+    document.getElementById('a-qte').value = '';
+    document.getElementById('a-prix').value = '';
+
+    invalidateCache('achats');
+    invalidateCache('produits');
+
+    showToast('Achat mis a jour !');
+    await loadAchats();
+  } finally {
+    if (btn) btn.disabled = false;
+  }
 }
 
 async function loadEmployes() {
