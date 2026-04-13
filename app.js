@@ -762,7 +762,13 @@ async function initStocks() {
       +'<td style="font-family:var(--mono);font-weight:500">'+(p.stock||0)+'</td>'
       +'<td style="min-width:80px"><div class="prog"><div class="prog-fill" style="width:'+pct+'%;background:'+col+'"></div></div></td>'
       +'<td style="font-family:var(--mono)">'+fmt(p.prix_vente||0)+' GNF</td>'
-      +'<td style="font-family:var(--mono)">'+(p.prix_achat>0?fmt(p.prix_achat)+' GNF':'—')+'</td>'
+      +'<td>'
+        +'<div style="display:flex;align-items:center;gap:4px">'
+          +'<input type="number" value="'+(p.prix_achat||0)+'" min="0" id="prixachat-'+p.id+'" '
+            +'style="width:80px;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;color:var(--text);padding:2px 5px;font-size:11px;font-family:var(--mono)" placeholder="0">'
+          +'<button class="btn" style="padding:2px 7px;font-size:10px" data-id="'+p.id+'" onclick="savePrixAchat(this.dataset.id)">OK</button>'
+        +'</div>'
+      +'</td>'
       +'<td><span class="badge '+bc+'">'+bt+'</span></td>'
       +'<td><div style="display:flex;align-items:center;gap:4px">'
         +'<input type="number" value="'+seuil+'" min="0" max="999" id="seuil-'+p.id+'" '
@@ -777,6 +783,19 @@ async function initStocks() {
   var top12 = produits.slice(0,12);
   mk('c-stock', {type:'bar',data:{labels:top12.map(function(p){return p.nom.split(' ').slice(0,2).join(' ');}),datasets:[{data:top12.map(function(p){return p.stock||0;}),backgroundColor:top12.map(function(p){return (p.stock||0)===0?'#f87171':(p.stock||0)<=(p.seuil_alerte||10)?'#fbbf24':'#6ee7b7';}),borderRadius:3}]},options:{indexAxis:'y'}});
   mk('c-stock-pie',{type:'pie',data:{labels:['En stock','Faible','Rupture'],datasets:[{data:[ok,faible,rupture],backgroundColor:['#6ee7b7','#fbbf24','#f87171'],borderWidth:0}]},options:{plugins:{legend:{display:true,position:'bottom',labels:{color:'#9090a8',font:{size:10}}}}}});
+}
+
+
+async function savePrixAchat(produitId) {
+  var input = document.getElementById('prixachat-'+produitId);
+  if (!input) return;
+  var prix = parseInt(input.value) || 0;
+  var r = await db.from('produits').update({ prix_achat: prix }).eq('id', produitId);
+  if (r.error) { showToast('Erreur: '+r.error.message, 'error'); return; }
+  invalidateCache('produits');
+  showToast('Prix achat mis a jour !');
+  // Mettre à jour aussi initAchats pour refléter le nouveau prix
+  initStocks();
 }
 
 async function saveSeuil(produitId) {
