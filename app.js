@@ -926,21 +926,6 @@ function remplirPrixAchat() {
   }
 }
 
-async function loadAchats() {
-  document.getElementById('ach-loading').style.display = 'flex';
-  var r = { data: (await dbGet('achats', {})).slice().sort(function(a,b){return b.date>a.date?1:-1;}) };
-  document.getElementById('ach-loading').style.display = 'none';
-  var data = filterDeps(r.data || []); // réutilise filterDeps car même logique date
-  var total = data.reduce(function(s,a){return s+(a.quantite||0)*(a.prix_unitaire||0);}, 0);
-  var at = document.getElementById('ach-total');
-  if(at) at.textContent = 'Total : ' + fmt(total) + ' GNF';
-  document.getElementById('a-body').innerHTML = data.map(function(a) {
-    var dateA = a.date ? formatDateDisplay(a.date) : '—'; return '<tr><td style="font-family:var(--mono)">'+dateA+'</td><td>'+a.produit_nom+'</td>'
-      +'<td style="font-family:var(--mono)">'+a.quantite+'</td>'
-      +'<td style="font-family:var(--mono)">'+fmt(a.prix_unitaire)+'</td>'
-      +'<td style="font-family:var(--mono)">'+fmt((a.quantite||0)*(a.prix_unitaire||0))+' GNF</td></tr>';
-  }).join('') || '<tr><td colspan="5" class="empty">Aucun achat</td></tr>';
-}
 
 async function addAchat() {
   var date = document.getElementById('a-date').value;
