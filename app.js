@@ -630,27 +630,86 @@ function recalcV() {
 }
 
 async function saveVentes() {
-  var date = document.getElementById('v-date').value;
-  var gerant = document.getElementById('v-gerant').value;
-  var rows = [];
-  (window._produits || []).forEach(function(p, i) {
-    var row = document.getElementById('v-body') && document.getElementById('v-body').rows[i];
-    if (!row) return;
-    var init = parseInt(row.cells[1].querySelector('input').value)||0;
-    var recu = parseInt(row.cells[2].querySelector('input').value)||0;
-    var after = parseInt(row.cells[3].querySelector('input').value)||0;
-    var sold = Math.max(0, init + recu - after);
-    if (sold > 0) rows.push({ date: date, produit_id: p.id, produit_nom: p.nom, stock_initial: init, stock_recu: recu, stock_apres: after, quantite_vendue: sold, prix_vente: p.prix_vente, gerant: gerant });
-  });
-  if (!rows.length) { showToast('Aucune vente a enregistrer', 'error'); return; }
-  var r = await db.from('ventes').insert(rows);
-  if (r.error) { showToast('Erreur: ' + r.error.message, 'error'); return; }
-  for (var i=0; i<rows.length; i++) {
-    await db.from('produits').update({ stock: rows[i].stock_apres }).eq('id', rows[i].produit_id);
-  }
-  invalidateCache('ventes'); invalidateCache('produits'); showToast(rows.length + ' ventes enregistrees !');
-}
+  var btn = document.querySelector('#vt-saisie .btn.btn-accent');
+  if (btn) btn.disabled = true;
 
+  try {
+    var date = document.getElementById('v-date').value;
+    var gerant = document.getElementById('v-gerant').value;
+
+    if (!date) {
+      showToast('Date obligatoire', 'error');
+      return;
+    }
+
+    var rows = [];
+    (window._produits || []).forEach(function(p, i) {
+      var row = document.getElementById('v-body') && document.getElementById('v-body').rows[i];
+      if (!row) return;
+
+      var init = parseInt(row.cells[1].querySelector('input').value) || 0;
+      var recu = parseInt(row.cells[2].querySelector('input').value) || 0;
+      var after = parseInt(row.cells[3].querySelector('input').value) || 0;
+      var sold = Math.max(0, init + recu - after);
+
+      // garder TOUTES les lignes pour que la dernière sauvegarde remplace vraiment l'ancienne
+      rows.push({
+        date: date,
+        produit_id: p.id,
+        produit_nom: p.nom,
+        stock_initial: init,
+        stock_recu: recu,
+        stock_apres: after,
+        quantite_vendue: sold,
+        prix_vente: p.prix_vente,
+        gerant: gerant
+      });
+    });
+
+    if (!rows.length) {
+      showToast('Aucune vente a enregistrer', 'error');
+      return;
+    }
+
+    // 1) supprimer les anciennes lignes de cette date
+    var del = await db.from('ventes').delete().eq('date', date);
+    if (del.error) {
+      showToast('Erreur suppression anciennes ventes: ' + del.error.message, 'error');
+      return;
+    }
+
+    // 2) inserer la dernière version
+    var ins = await db.from('ventes').insert(rows);
+    if (ins.error) {
+      showToast('Erreur enregistrement ventes: ' + ins.error.message, 'error');
+      return;
+    }
+
+    // 3) mettre à jour le stock produit
+    for (var j = 0; j < rows.length; j++) {
+      var up = await db
+        .from('produits')
+        .update({ stock: rows[j].stock_apres })
+        .eq('id', rows[j].produit_id);
+
+      if (up.error) {
+        showToast('Erreur mise a jour stock: ' + up.error.message, 'error');
+        return;
+      }
+    }
+
+    invalidateCache('ventes');
+    invalidateCache('produits');
+
+    showToast('Ventes mises a jour avec succes !');
+
+    await chargerStocksDate(date);
+    await loadHistVentes();
+    await initDashboard();
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
 
 // ============================================
 // FILTRE HISTORIQUE VENTES
