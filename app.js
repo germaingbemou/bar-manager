@@ -491,13 +491,15 @@ async function initDashboard() {
       var coutBouteille = prod.prix_achat / prod.bouteilles_par_casier;
       return s + (v.quantite_vendue||0) * coutBouteille;
     }, 0);
-    // Bénéfice = CA - Dépenses (inclut déjà les salaires) - Coût bouteilles
-    // Ne pas soustraire tsal car les salaires sont saisis dans les dépenses
-    const ben = ca - tdep - coutVentes;
+    // Bénéfice = CA - Dépenses - Achats produits (comptabilité de trésorerie)
+    const achatsAll = await dbGet('achats', {});
+    const achats = filterDeps(achatsAll); // filtrer par période
+    const tach = achats.reduce(function(s,a){ return s + (a.quantite||0)*(a.prix_unitaire||0); }, 0);
+    const ben = ca - tdep - tach;
 
     document.getElementById('m-ca').textContent = fmtK(ca);
     document.getElementById('m-dep').textContent = fmtK(tdep);
-    document.getElementById('m-sal').textContent = fmtK(tsal + tpr);
+    document.getElementById('m-sal').textContent = fmtK(tach);
     document.getElementById('m-ben').textContent = fmtK(ben);
     document.getElementById('m-ben-s').className = 'metric-sub ' + (ben >= 0 ? 'up' : 'down');
 
