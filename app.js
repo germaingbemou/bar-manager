@@ -482,7 +482,15 @@ async function initDashboard() {
     const tdep = deps.reduce(function(s,d) { return s + (d.montant||0); }, 0);
     const tsal = employes.reduce(function(s,e) { return s + (e.salaire||0); }, 0);
     const tpr = primes.reduce(function(s,p) { return s + (p.montant||0); }, 0);
-    const ben = ca - tdep - tsal;
+    // Coût réel des bouteilles vendues = quantite_vendue × (prix_achat_casier / bouteilles_par_casier)
+    const produitsData = await dbGet('produits', {});
+    const coutVentes = ventes.reduce(function(s,v) {
+      var prod = produitsData.find(function(p){ return p.nom === v.produit_nom; });
+      if (!prod || !prod.prix_achat || !prod.bouteilles_par_casier) return s;
+      var coutBouteille = prod.prix_achat / prod.bouteilles_par_casier;
+      return s + (v.quantite_vendue||0) * coutBouteille;
+    }, 0);
+    const ben = ca - tdep - tsal - coutVentes;
 
     document.getElementById('m-ca').textContent = fmtK(ca);
     document.getElementById('m-dep').textContent = fmtK(tdep);
@@ -638,94 +646,26 @@ function recalcV() {
   if(vt) vt.textContent = 'Total : ' + fmt(total) + ' GNF';
 }
 
-var _savingVentes = false;
-
 async function saveVentes() {
-  if (_savingVentes) return;
-  _savingVentes = true;
-
-  var btn = document.querySelector('#vt-saisie .btn.btn-accent');
-  if (btn) btn.disabled = true;
-
-  try {
-    var date = document.getElementById('v-date').value;
-    var gerant = document.getElementById('v-gerant').value;
-
-    if (!date) {
-      showToast('Date obligatoire', 'error');
-      return;
-    }
-
-    var rows = [];
-
-    (window._produits || []).forEach(function(p, i) {
-      var row = document.getElementById('v-body') && document.getElementById('v-body').rows[i];
-      if (!row) return;
-
-      var init = parseInt(row.cells[1].querySelector('input').value, 10) || 0;
-      var recu = parseInt(row.cells[2].querySelector('input').value, 10) || 0;
-      var after = parseInt(row.cells[3].querySelector('input').value, 10) || 0;
-      var sold = Math.max(0, init + recu - after);
-
-      // On garde toutes les lignes pour que la sauvegarde remplace vraiment l'ancien état
-      rows.push({
-        date: date,
-        produit_id: p.id,
-        produit_nom: p.nom,
-        stock_initial: init,
-        stock_recu: recu,
-        stock_apres: after,
-        quantite_vendue: sold,
-        prix_vente: p.prix_vente,
-        gerant: gerant
-      });
-    });
-
-    if (!rows.length) {
-      showToast('Aucune vente a enregistrer', 'error');
-      return;
-    }
-
-    // 1. Supprimer toutes les anciennes ventes de cette date
-    var del = await db.from('ventes').delete().eq('date', date);
-    if (del.error) {
-      showToast('Erreur suppression anciennes ventes: ' + del.error.message, 'error');
-      return;
-    }
-
-    // 2. Insérer la nouvelle version complète
-    var ins = await db.from('ventes').insert(rows);
-    if (ins.error) {
-      showToast('Erreur enregistrement ventes: ' + ins.error.message, 'error');
-      return;
-    }
-
-    // 3. Mettre à jour le stock de chaque produit
-    for (var j = 0; j < rows.length; j++) {
-      var up = await db
-        .from('produits')
-        .update({ stock: rows[j].stock_apres })
-        .eq('id', rows[j].produit_id);
-
-      if (up.error) {
-        showToast('Erreur mise a jour stock: ' + up.error.message, 'error');
-        return;
-      }
-    }
-
-    invalidateCache('ventes');
-    invalidateCache('produits');
-
-    showToast('Ventes mises a jour avec succes !');
-
-    await chargerStocksDate(date);
-    await loadHistVentes();
-    await initDashboard();
-
-  } finally {
-    _savingVentes = false;
-    if (btn) btn.disabled = false;
+  var date = document.getElementById('v-date').value;
+  var gerant = document.getElementById('v-gerant').value;
+  var rows = [];
+  (window._produits || []).forEach(function(p, i) {
+    var row = document.getElementById('v-body') && document.getElementById('v-body').rows[i];
+    if (!row) return;
+    var init = parseInt(row.cells[1].querySelector('input').value)||0;
+    var recu = parseInt(row.cells[2].querySelector('input').value)||0;
+    var after = parseInt(row.cells[3].querySelector('input').value)||0;
+    var sold = Math.max(0, init + recu - after);
+    if (sold > 0) rows.push({ date: date, produit_id: p.id, produit_nom: p.nom, stock_initial: init, stock_recu: recu, stock_apres: after, quantite_vendue: sold, prix_vente: p.prix_vente, gerant: gerant });
+  });
+  if (!rows.length) { showToast('Aucune vente a enregistrer', 'error'); return; }
+  var r = await db.from('ventes').insert(rows);
+  if (r.error) { showToast('Erreur: ' + r.error.message, 'error'); return; }
+  for (var i=0; i<rows.length; i++) {
+    await db.from('produits').update({ stock: rows[i].stock_apres }).eq('id', rows[i].produit_id);
   }
+  invalidateCache('ventes'); invalidateCache('produits'); showToast(rows.length + ' ventes enregistrees !');
 }
 
 
@@ -1332,14 +1272,27 @@ async function initAnalyse() {
     byProd[v.produit_nom].rev += (v.quantite_vendue||0)*(v.prix_vente||0);
     byProd[v.produit_nom].qVen += v.quantite_vendue||0;
   });
+  // Charger les produits pour le calcul par bouteille
+  var produitsAn = await dbGet('produits', {});
   achats.forEach(function(a) {
     if (!byProd[a.produit_nom]) byProd[a.produit_nom] = { rev:0, qVen:0, cAch:0, qAch:0 };
     byProd[a.produit_nom].cAch += (a.quantite||0)*(a.prix_unitaire||0);
     byProd[a.produit_nom].qAch += a.quantite||0;
   });
+  // Recalculer le coût réel par bouteille vendue
+  Object.keys(byProd).forEach(function(nom) {
+    var prod = produitsAn.find(function(p){ return p.nom === nom; });
+    if (prod && prod.prix_achat && prod.bouteilles_par_casier) {
+      var coutParBouteille = prod.prix_achat / prod.bouteilles_par_casier;
+      byProd[nom].coutReel = byProd[nom].qVen * coutParBouteille;
+    } else {
+      byProd[nom].coutReel = byProd[nom].cAch; // fallback si pas de données
+    }
+  });
   var prodData = Object.entries(byProd).map(function(x) {
     var n=x[0], d=x[1];
-    return { n:n, rev:d.rev, qVen:d.qVen, cAch:d.cAch, qAch:d.qAch, marge:d.rev-d.cAch, pct:d.rev>0?Math.round((d.rev-d.cAch)/d.rev*100):0 };
+    var coutReel = d.coutReel !== undefined ? d.coutReel : d.cAch;
+    return { n:n, rev:d.rev, qVen:d.qVen, cAch:d.cAch, coutReel:coutReel, qAch:d.qAch, marge:d.rev-coutReel, pct:d.rev>0?Math.round((d.rev-coutReel)/d.rev*100):0 };
   }).sort(function(a,b){return b.marge-a.marge;});
   var totRev = prodData.reduce(function(s,d){return s+d.rev;}, 0);
   var totAch = prodData.reduce(function(s,d){return s+d.cAch;}, 0);
@@ -1612,10 +1565,13 @@ async function loadStockPeriode() {
     var achatsP = achats.filter(function(a){ return a.produit_nom === p.nom; });
     var qteAchetee = achatsP.reduce(function(s,a){ return s+(a.quantite||0); }, 0);
     var coutAchat = achatsP.reduce(function(s,a){ return s+(a.quantite||0)*(a.prix_unitaire||0); }, 0);
-
-    // Variation nette = acheté - vendu
-    var variation = qteAchetee - qteVendue;
-    var marge = revenu - coutAchat;
+    // Coût réel par bouteille vendue
+    var coutParBouteille = (p.prix_achat && p.bouteilles_par_casier) ? p.prix_achat / p.bouteilles_par_casier : 0;
+    var coutReel = qteVendue * coutParBouteille;
+    // Variation nette = acheté - vendu (en bouteilles équivalentes)
+    var qteAcheteeBott = qteAchetee * (p.bouteilles_par_casier || 24);
+    var variation = qteAcheteeBott - qteVendue;
+    var marge = revenu - coutReel;
 
     totalRevenu += revenu;
     totalCout += coutAchat;
