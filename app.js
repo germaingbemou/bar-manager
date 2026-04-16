@@ -480,6 +480,7 @@ async function initDashboard() {
 
     const ca = ventes.reduce(function(s,v) { return s + (v.quantite_vendue||0)*(v.prix_vente||0); }, 0);
     const tdep = deps.reduce(function(s,d) { return s + (d.montant||0); }, 0);
+    // Salaires mensuels — info seulement, déjà inclus dans les dépenses
     const tsal = employes.reduce(function(s,e) { return s + (e.salaire||0); }, 0);
     const tpr = primes.reduce(function(s,p) { return s + (p.montant||0); }, 0);
     // Coût réel des bouteilles vendues = quantite_vendue × (prix_achat_casier / bouteilles_par_casier)
@@ -490,7 +491,9 @@ async function initDashboard() {
       var coutBouteille = prod.prix_achat / prod.bouteilles_par_casier;
       return s + (v.quantite_vendue||0) * coutBouteille;
     }, 0);
-    const ben = ca - tdep - tsal - coutVentes;
+    // Bénéfice = CA - Dépenses (inclut déjà les salaires) - Coût bouteilles
+    // Ne pas soustraire tsal car les salaires sont saisis dans les dépenses
+    const ben = ca - tdep - coutVentes;
 
     document.getElementById('m-ca').textContent = fmtK(ca);
     document.getElementById('m-dep').textContent = fmtK(tdep);
